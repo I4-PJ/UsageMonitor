@@ -30,6 +30,22 @@
                            FontSize="14"
                            Foreground="#AAB1C0"
                            TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="10"
+                            Margin="0,10,0,0">
+                    <TextBlock Text="Refresh interval"
+                               Foreground="#AAB1C0"
+                               VerticalAlignment="Center"/>
+                    <ComboBox ItemsSource="{Binding RefreshIntervalOptions}"
+                              SelectedItem="{Binding SelectedRefreshIntervalOption, Mode=TwoWay}"
+                              MinWidth="130">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:RefreshIntervalOption">
+                                <TextBlock Text="{Binding Label}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
             </StackPanel>
 
             <Button Grid.Column="1"
