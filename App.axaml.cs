@@ -50,12 +50,27 @@ namespace UsageMonitor
                 _viewModel.QuotaRefreshed += UpdateTrayStatus;
                 _viewModel.QuotaRefreshFailed += UpdateTrayUnknown;
                 _viewModel.RefreshIntervalChanged += UpdateRefreshInterval;
+                if (desktop is IActivatableLifetime activatableLifetime)
+                {
+                    activatableLifetime.Activated += OnApplicationActivated;
+                }
+
                 CreateTrayIcon();
                 StartRefreshLoop(settings.RefreshIntervalMinutes);
                 RefreshQuota();
             }
 
             base.OnFrameworkInitializationCompleted();
+        }
+
+        private void OnApplicationActivated(object? sender, ActivatedEventArgs args)
+        {
+            if (args.Kind != ActivationKind.Reopen)
+            {
+                return;
+            }
+
+            RequestShowDetailWindow();
         }
 
         private void RequestShowDetailWindow()
