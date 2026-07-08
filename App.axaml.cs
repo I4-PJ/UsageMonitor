@@ -1,6 +1,8 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -22,9 +24,10 @@ namespace UsageMonitor
         private MainWindow? _detailWindow;
         private TrayIcon? _trayIcon;
         private MainWindowViewModel? _viewModel;
-        private DispatcherTimer? _refreshTimer;
+        private CancellationTokenSource? _refreshLoopCancellation;
         private AppSettingsStore? _settingsStore;
         private bool _isShuttingDown;
+        private bool _isShowingDetailWindow;
 
         public override void Initialize()
         {
@@ -48,17 +51,22 @@ namespace UsageMonitor
                 _viewModel.QuotaRefreshFailed += UpdateTrayUnknown;
                 _viewModel.RefreshIntervalChanged += UpdateRefreshInterval;
                 CreateTrayIcon();
-                CreateRefreshTimer(settings.RefreshIntervalMinutes);
+                StartRefreshLoop(settings.RefreshIntervalMinutes);
                 RefreshQuota();
             }
 
             base.OnFrameworkInitializationCompleted();
         }
 
+        private void RequestShowDetailWindow()
+        {
+            Dispatcher.UIThread.Post(ShowDetailWindow);
+        }
+
         private void CreateTrayIcon()
         {
             var showItem = new NativeMenuItem("Show Details");
-            showItem.Click += (_, _) => ShowDetailWindow();
+            showItem.Click += (_, _) => RequestShowDetailWindow();
 
             var refreshItem = new NativeMenuItem("Refresh Now");
             refreshItem.Click += (_, _) => RefreshQuota();
@@ -80,55 +88,90 @@ namespace UsageMonitor
                 IsVisible = true
             };
 
-            _trayIcon.Clicked += (_, _) => ShowDetailWindow();
+            _trayIcon.Clicked += (_, _) => RequestShowDetailWindow();
         }
 
-        private void CreateRefreshTimer(int refreshIntervalMinutes)
+        private void StartRefreshLoop(int refreshIntervalMinutes)
         {
-            _refreshTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMinutes(refreshIntervalMinutes)
-            };
-            _refreshTimer.Tick += (_, _) => RefreshQuota();
-            _refreshTimer.Start();
+            _refreshLoopCancellation?.Cancel();
+            _refreshLoopCancellation?.Dispose();
+            _refreshLoopCancellation = new CancellationTokenSource();
+            _ = RunRefreshLoopAsync(refreshIntervalMinutes, _refreshLoopCancellation.Token);
         }
 
         private void UpdateRefreshInterval(int refreshIntervalMinutes)
         {
-            if (_refreshTimer is null)
-            {
-                return;
-            }
+            StartRefreshLoop(refreshIntervalMinutes);
+        }
 
-            _refreshTimer.Interval = TimeSpan.FromMinutes(refreshIntervalMinutes);
-            _refreshTimer.Stop();
-            _refreshTimer.Start();
+        private async Task RunRefreshLoopAsync(int refreshIntervalMinutes, CancellationToken cancellationToken)
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(refreshIntervalMinutes), cancellationToken);
+                    await Dispatcher.UIThread.InvokeAsync(RefreshQuota);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
 
         private void ShowDetailWindow()
         {
-            if (_detailWindow is null)
+            if (_isShowingDetailWindow)
             {
-                _detailWindow = new MainWindow
-                {
-                    DataContext = _viewModel
-                };
-                _detailWindow.Closing += (_, args) =>
-                {
-                    if (_isShuttingDown)
-                    {
-                        return;
-                    }
-
-                    args.Cancel = true;
-                    _detailWindow.Hide();
-                };
+                return;
             }
 
-            _desktop!.MainWindow = _detailWindow;
-            _detailWindow.Show();
-            _detailWindow.Activate();
-            RefreshQuota();
+            _isShowingDetailWindow = true;
+            try
+            {
+                if (_detailWindow is null)
+                {
+                    _detailWindow = new MainWindow
+                    {
+                        DataContext = _viewModel
+                    };
+                    _detailWindow.Closed += (_, _) =>
+                    {
+                        if (_isShuttingDown)
+                        {
+                            _detailWindow = null;
+                        }
+                    };
+                    _detailWindow.Closing += (_, args) =>
+                    {
+                        if (_isShuttingDown)
+                        {
+                            return;
+                        }
+
+                        args.Cancel = true;
+                        _detailWindow.Hide();
+                    };
+                }
+
+                _desktop!.MainWindow = _detailWindow;
+                if (!_detailWindow.IsVisible)
+                {
+                    _detailWindow.Show();
+                }
+
+                if (_detailWindow.WindowState == WindowState.Minimized)
+                {
+                    _detailWindow.WindowState = WindowState.Normal;
+                }
+
+                _detailWindow.Activate();
+                RefreshQuota();
+            }
+            finally
+            {
+                _isShowingDetailWindow = false;
+            }
         }
 
         private void RefreshQuota()
@@ -231,7 +274,8 @@ namespace UsageMonitor
         private void Shutdown()
         {
             _isShuttingDown = true;
-            _refreshTimer?.Stop();
+            _refreshLoopCancellation?.Cancel();
+            _refreshLoopCancellation?.Dispose();
             _trayIcon?.Dispose();
             _desktop?.Shutdown();
         }

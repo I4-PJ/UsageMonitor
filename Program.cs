@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -65,7 +66,12 @@ namespace UsageMonitor
         public static AppBuilder BuildAvaloniaApp()
             => AppBuilder.Configure<App>()
                 .UsePlatformDetect()
-                .WithInterFont()
-                .LogToTrace();
+                .With(new Win32PlatformOptions
+                {
+                    CompositionMode =
+                    [
+                        Win32CompositionMode.RedirectionSurface
+                    ]
+                });
     }
 }
