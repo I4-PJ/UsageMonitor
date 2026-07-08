@@ -10,7 +10,7 @@
         Icon="/Assets/avalonia-logo.ico"
         Title="Codex Usage Monitor"
         Width="760"
-        Height="600"
+        Height="630"
         MinWidth="620"
         MinHeight="440"
         Background="#111318">
