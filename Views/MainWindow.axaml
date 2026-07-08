@@ -1,0 +1,150 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:UsageMonitor.ViewModels"
+        xmlns:models="using:UsageMonitor.Models"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="520"
+        x:Class="UsageMonitor.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Codex Usage Monitor"
+        Width="760"
+        Height="600"
+        MinWidth="620"
+        MinHeight="440"
+        Background="#111318">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+        <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Codex Usage"
+                           FontSize="28"
+                           FontWeight="SemiBold"
+                           Foreground="#F4F6FA"/>
+                <TextBlock Text="{Binding SummaryText}"
+                           FontSize="14"
+                           Foreground="#AAB1C0"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <Button Grid.Column="1"
+                    Command="{Binding RefreshCommand}"
+                    MinWidth="112"
+                    Height="40"
+                    HorizontalAlignment="Right">
+                <TextBlock Text="Refresh"/>
+            </Button>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" Margin="0,24,0,16">
+            <ItemsControl ItemsSource="{Binding Limits}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:QuotaLimitViewModel">
+                        <Border Background="#1A1D24"
+                                BorderBrush="#2A303A"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="18"
+                                Margin="0,0,0,12">
+                            <StackPanel Spacing="14">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   FontSize="18"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#F4F6FA"/>
+                                        <TextBlock Text="{Binding StatusText}"
+                                                   FontSize="13"
+                                                   Foreground="#AAB1C0"/>
+                                    </StackPanel>
+
+                                    <Border Grid.Column="1"
+                                            Background="#252B35"
+                                            CornerRadius="4"
+                                            Padding="8,4"
+                                            IsVisible="{Binding !!PlanType}">
+                                        <TextBlock Text="{Binding PlanType}"
+                                                   FontSize="12"
+                                                   Foreground="#CAD2E0"/>
+                                    </Border>
+                                </Grid>
+
+                                <ItemsControl ItemsSource="{Binding Windows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:QuotaWindowViewModel">
+                                            <Grid RowDefinitions="Auto,Auto"
+                                                  ColumnDefinitions="120,*,130"
+                                                  Margin="0,4">
+                                                <TextBlock Text="{Binding Title}"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#D7DCE7"/>
+
+                                                <ProgressBar Grid.Column="1"
+                                                             Minimum="0"
+                                                             Maximum="100"
+                                                             Height="12"
+                                                             Value="{Binding ProgressValue}"
+                                                             Foreground="#6EE7B7"
+                                                             Background="#303640"/>
+
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding LeftText}"
+                                                           HorizontalAlignment="Right"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#F4F6FA"/>
+
+                                                <TextBlock Grid.Row="1"
+                                                           Grid.Column="1"
+                                                           Text="{Binding WindowText}"
+                                                           Margin="0,6,0,0"
+                                                           FontSize="12"
+                                                           Foreground="#8F98A8"/>
+
+                                                <TextBlock Grid.Row="1"
+                                                           Grid.Column="2"
+                                                           Text="{Binding ResetText}"
+                                                           Margin="0,6,0,0"
+                                                           HorizontalAlignment="Right"
+                                                           FontSize="12"
+                                                           Foreground="#8F98A8"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto">
+            <TextBlock Text="{Binding StatusText}"
+                       Foreground="#AAB1C0"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap"/>
+            <TextBlock Grid.Column="1"
+                       Text="{Binding LastUpdatedText}"
+                       Foreground="#AAB1C0"
+                       Margin="16,0,0,0"
+                       VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2"
+                       Text="{Binding TodayTokensText}"
+                       Foreground="#AAB1C0"
+                       Margin="16,0,0,0"
+                       VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="3"
+                       Text="{Binding ResetCreditsText}"
+                       Foreground="#AAB1C0"
+                       Margin="16,0,0,0"
+                       VerticalAlignment="Center"/>
+        </Grid>
+    </Grid>
+</Window>
