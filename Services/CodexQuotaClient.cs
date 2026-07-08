@@ -80,14 +80,21 @@ public sealed class CodexQuotaClient
             StandardInputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
             StandardOutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
             StandardErrorEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            CreateNoWindow = true
+            CreateNoWindow = true,
+            WorkingDirectory = GetStableWorkingDirectory()
         };
+
+        AddShellPathHints(startInfo);
 
         if (TryUseCachedCodexCli(startInfo))
         {
             startInfo.ArgumentList.Add("app-server");
         }
         else if (TryUseNodeNpx(startInfo))
+        {
+            AddCodexNpxArguments(startInfo);
+        }
+        else if (TryUseUnixNpx(startInfo))
         {
             AddCodexNpxArguments(startInfo);
         }
@@ -99,6 +106,104 @@ public sealed class CodexQuotaClient
 
         return Process.Start(startInfo)
             ?? throw new InvalidOperationException("Unable to start Codex app-server.");
+    }
+
+    private static string GetStableWorkingDirectory()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(home) && Directory.Exists(home))
+        {
+            return home;
+        }
+
+        return Path.GetTempPath();
+    }
+
+    private static void AddShellPathHints(ProcessStartInfo startInfo)
+    {
+        var paths = new List<string>();
+        var existingPath = Environment.GetEnvironmentVariable("PATH");
+
+        if (!string.IsNullOrWhiteSpace(existingPath))
+        {
+            paths.AddRange(existingPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            AddPathIfDirectoryExists(paths, "/opt/homebrew/bin");
+            AddPathIfDirectoryExists(paths, "/opt/homebrew/sbin");
+            AddPathIfDirectoryExists(paths, "/usr/local/bin");
+            AddPathIfDirectoryExists(paths, "/usr/local/sbin");
+            AddHomebrewNodePaths(paths, "/opt/homebrew/Cellar");
+            AddHomebrewNodePaths(paths, "/usr/local/Cellar");
+        }
+        else if (!OperatingSystem.IsWindows())
+        {
+            AddPathIfDirectoryExists(paths, "/usr/local/bin");
+            AddPathIfDirectoryExists(paths, "/usr/bin");
+            AddPathIfDirectoryExists(paths, "/bin");
+        }
+
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(home))
+        {
+            AddPathIfDirectoryExists(paths, Path.Combine(home, ".npm-global", "bin"));
+            AddPathIfDirectoryExists(paths, Path.Combine(home, ".local", "bin"));
+            AddNvmNodePaths(paths, Path.Combine(home, ".nvm", "versions", "node"));
+        }
+
+        if (paths.Count > 0)
+        {
+            startInfo.Environment["PATH"] = string.Join(Path.PathSeparator, paths.Distinct(StringComparer.Ordinal).ToArray());
+        }
+    }
+
+    private static void AddPathIfDirectoryExists(List<string> paths, string path)
+    {
+        if (Directory.Exists(path) && !paths.Contains(path, StringComparer.Ordinal))
+        {
+            paths.Add(path);
+        }
+    }
+
+    private static void AddNvmNodePaths(List<string> paths, string versionsPath)
+    {
+        if (!Directory.Exists(versionsPath))
+        {
+            return;
+        }
+
+        foreach (var nodeBinPath in Directory
+            .EnumerateDirectories(versionsPath)
+            .Select(path => Path.Combine(path, "bin"))
+            .Where(Directory.Exists)
+            .OrderByDescending(path => Directory.GetLastWriteTimeUtc(path)))
+        {
+            AddPathIfDirectoryExists(paths, nodeBinPath);
+        }
+    }
+
+    private static void AddHomebrewNodePaths(List<string> paths, string cellarPath)
+    {
+        if (!Directory.Exists(cellarPath))
+        {
+            return;
+        }
+
+        foreach (var nodeFormulaPath in Directory
+            .EnumerateDirectories(cellarPath, "node*")
+            .OrderByDescending(path => Directory.GetLastWriteTimeUtc(path)))
+        {
+            foreach (var nodeBinPath in Directory
+                .EnumerateDirectories(nodeFormulaPath)
+                .Select(path => Path.Combine(path, "bin"))
+                .Where(Directory.Exists)
+                .OrderByDescending(path => Directory.GetLastWriteTimeUtc(path)))
+            {
+                AddPathIfDirectoryExists(paths, nodeBinPath);
+            }
+        }
     }
 
     private static bool TryUseCachedCodexCli(ProcessStartInfo startInfo)
@@ -159,6 +264,50 @@ public sealed class CodexQuotaClient
         startInfo.FileName = nodePath;
         startInfo.ArgumentList.Add(npxCliPath);
         return true;
+    }
+
+    private static bool TryUseUnixNpx(ProcessStartInfo startInfo)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        var npxPath = FindExecutableOnPath("npx", startInfo.Environment.TryGetValue("PATH", out var path) ? path : null);
+        if (npxPath is not null)
+        {
+            startInfo.FileName = npxPath;
+            return true;
+        }
+
+        var envPath = "/usr/bin/env";
+        if (!File.Exists(envPath))
+        {
+            return false;
+        }
+
+        startInfo.FileName = envPath;
+        startInfo.ArgumentList.Add("npx");
+        return true;
+    }
+
+    private static string? FindExecutableOnPath(string executableName, string? pathValue)
+    {
+        if (string.IsNullOrWhiteSpace(pathValue))
+        {
+            return null;
+        }
+
+        foreach (var directory in pathValue.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var candidate = Path.Combine(directory, executableName);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private static string? GetWindowsNodePath()

@@ -5,12 +5,15 @@
     <Nullable>enable</Nullable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/AppIcon.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <UseAppHost>true</UseAppHost>
+    <RuntimeIdentifiers>osx-x64;osx-arm64;win-x64;linux-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
     <Folder Include="Models\" />
-    <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="Assets/**" />
   </ItemGroup>
 
   <ItemGroup>

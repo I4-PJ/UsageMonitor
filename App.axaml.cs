@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -111,7 +112,7 @@ namespace UsageMonitor
 
             _trayIcon = new TrayIcon
             {
-                Icon = LoadTrayIcon("quota-gray.ico"),
+                Icon = LoadTrayIcon(GetTrayIconAssetName("quota-gray")),
                 ToolTipText = "Codex Usage Monitor\nQuota not loaded yet.",
                 Menu = menu,
                 IsVisible = true
@@ -220,8 +221,11 @@ namespace UsageMonitor
 
             var codex = snapshot.Limits.FirstOrDefault(limit => limit.LimitId == "codex");
             var primary = codex?.Primary;
-            _trayIcon.Icon = LoadTrayIcon(GetStatusIconName(primary?.LeftPercent));
+            var statusName = GetStatusName(primary?.LeftPercent);
+            _trayIcon.Icon = LoadTrayIcon(GetTrayIconAssetName(statusName));
             _trayIcon.ToolTipText = BuildTooltip(codex, snapshot.RefreshedAt);
+            SetDockIcon(statusName);
+            SetDockBadge(primary?.LeftPercent is null ? null : $"{primary.LeftPercent}%");
         }
 
         private void UpdateTrayUnknown()
@@ -231,8 +235,10 @@ namespace UsageMonitor
                 return;
             }
 
-            _trayIcon.Icon = LoadTrayIcon("quota-gray.ico");
+            _trayIcon.Icon = LoadTrayIcon(GetTrayIconAssetName("quota-gray"));
             _trayIcon.ToolTipText = "Codex Usage Monitor\nRefresh failed.";
+            SetDockIcon("quota-red");
+            SetDockBadge("!");
         }
 
         private static WindowIcon LoadTrayIcon(string fileName)
@@ -241,16 +247,23 @@ namespace UsageMonitor
             return new WindowIcon(iconStream);
         }
 
-        private static string GetStatusIconName(int? leftPercent)
+        private static string GetStatusName(int? leftPercent)
         {
             return leftPercent switch
             {
-                null => "quota-gray.ico",
-                >= 60 => "quota-green.ico",
-                >= 30 => "quota-yellow.ico",
-                >= 10 => "quota-orange.ico",
-                _ => "quota-red.ico"
+                null => "quota-gray",
+                >= 60 => "quota-green",
+                >= 30 => "quota-yellow",
+                >= 10 => "quota-orange",
+                _ => "quota-red"
             };
+        }
+
+        private static string GetTrayIconAssetName(string baseName)
+        {
+            return OperatingSystem.IsMacOS()
+                ? $"{baseName}-macos.png"
+                : $"{baseName}.ico";
         }
 
         private static string BuildTooltip(QuotaLimit? codex, DateTimeOffset refreshedAt)
@@ -306,6 +319,8 @@ namespace UsageMonitor
             _refreshLoopCancellation?.Cancel();
             _refreshLoopCancellation?.Dispose();
             RestoreMacApplicationShouldHandleReopenHandler();
+            SetDockBadge(null);
+            SetDockIcon("quota-gray");
             if (_desktop is IActivatableLifetime activatableLifetime)
             {
                 activatableLifetime.Activated -= OnApplicationActivated;
@@ -381,6 +396,95 @@ namespace UsageMonitor
             return s_originalApplicationShouldHandleReopen?.Invoke(self, selector, application, hasVisibleWindows) ?? true;
         }
 
+        private static void SetDockIcon(string statusName)
+        {
+            if (!OperatingSystem.IsMacOS())
+            {
+                return;
+            }
+
+            var iconPath = GetDockIconPath(statusName);
+            if (iconPath is null)
+            {
+                return;
+            }
+
+            var imagePath = CFStringCreateWithCString(IntPtr.Zero, iconPath, CfStringEncodingUtf8);
+            var image = IntPtr.Zero;
+            try
+            {
+                var nsImageClass = objc_getClass("NSImage");
+                var allocatedImage = objc_msgSend(nsImageClass, sel_registerName("alloc"));
+                image = objc_msgSend_IntPtr(allocatedImage, sel_registerName("initWithContentsOfFile:"), imagePath);
+                if (image == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                var application = objc_msgSend(objc_getClass("NSApplication"), sel_registerName("sharedApplication"));
+                objc_msgSend(application, sel_registerName("setApplicationIconImage:"), image);
+            }
+            finally
+            {
+                if (image != IntPtr.Zero)
+                {
+                    objc_msgSend(image, sel_registerName("release"));
+                }
+
+                if (imagePath != IntPtr.Zero)
+                {
+                    CFRelease(imagePath);
+                }
+            }
+        }
+
+        private static string? GetDockIconPath(string statusName)
+        {
+            var colorName = statusName.StartsWith("quota-", StringComparison.Ordinal)
+                ? statusName["quota-".Length..]
+                : "gray";
+
+            var baseDirectory = AppContext.BaseDirectory;
+            var candidatePaths = new[]
+            {
+                Path.GetFullPath(Path.Combine(baseDirectory, "..", "Resources", $"AppIcon-{colorName}.png")),
+                Path.GetFullPath(Path.Combine(baseDirectory, "Assets", $"AppIcon-{colorName}.png"))
+            };
+
+            return candidatePaths.FirstOrDefault(File.Exists);
+        }
+
+        private static void SetDockBadge(string? label)
+        {
+            if (!OperatingSystem.IsMacOS())
+            {
+                return;
+            }
+
+            var application = objc_msgSend(objc_getClass("NSApplication"), sel_registerName("sharedApplication"));
+            var dockTile = objc_msgSend(application, sel_registerName("dockTile"));
+            if (dockTile == IntPtr.Zero)
+            {
+                return;
+            }
+
+            var badgeLabel = string.IsNullOrWhiteSpace(label)
+                ? IntPtr.Zero
+                : CFStringCreateWithCString(IntPtr.Zero, label, CfStringEncodingUtf8);
+
+            try
+            {
+                objc_msgSend(dockTile, sel_registerName("setBadgeLabel:"), badgeLabel);
+            }
+            finally
+            {
+                if (badgeLabel != IntPtr.Zero)
+                {
+                    CFRelease(badgeLabel);
+                }
+            }
+        }
+
         [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_getClass")]
         private static extern IntPtr objc_getClass(string name);
 
@@ -398,6 +502,20 @@ namespace UsageMonitor
 
         [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
         private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+        private static extern IntPtr objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector, IntPtr argument);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+        private static extern void objc_msgSend(IntPtr receiver, IntPtr selector, IntPtr argument);
+
+        [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+        private static extern IntPtr CFStringCreateWithCString(IntPtr allocator, string value, uint encoding);
+
+        [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+        private static extern void CFRelease(IntPtr value);
+
+        private const uint CfStringEncodingUtf8 = 0x08000100;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
