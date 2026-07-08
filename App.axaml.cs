@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -28,6 +29,11 @@ namespace UsageMonitor
         private AppSettingsStore? _settingsStore;
         private bool _isShuttingDown;
         private bool _isShowingDetailWindow;
+        private bool _canShowDetailsFromAppActivation;
+        private static ApplicationShouldHandleReopenDelegate? s_applicationShouldHandleReopen;
+        private static ApplicationShouldHandleReopenDelegate? s_originalApplicationShouldHandleReopen;
+        private static IntPtr s_applicationShouldHandleReopenMethod;
+        private static IntPtr s_originalApplicationShouldHandleReopenImp;
 
         public override void Initialize()
         {
@@ -58,6 +64,11 @@ namespace UsageMonitor
                 CreateTrayIcon();
                 StartRefreshLoop(settings.RefreshIntervalMinutes);
                 RefreshQuota();
+                Dispatcher.UIThread.Post(() =>
+                {
+                    InstallMacApplicationShouldHandleReopenHandler();
+                    _canShowDetailsFromAppActivation = true;
+                });
             }
 
             base.OnFrameworkInitializationCompleted();
@@ -65,12 +76,15 @@ namespace UsageMonitor
 
         private void OnApplicationActivated(object? sender, ActivatedEventArgs args)
         {
-            if (args.Kind != ActivationKind.Reopen)
+            if (!_canShowDetailsFromAppActivation)
             {
                 return;
             }
 
-            RequestShowDetailWindow();
+            if (args.Kind == ActivationKind.Reopen || _detailWindow?.IsVisible != true)
+            {
+                RequestShowDetailWindow();
+            }
         }
 
         private void RequestShowDetailWindow()
@@ -291,8 +305,106 @@ namespace UsageMonitor
             _isShuttingDown = true;
             _refreshLoopCancellation?.Cancel();
             _refreshLoopCancellation?.Dispose();
+            RestoreMacApplicationShouldHandleReopenHandler();
+            if (_desktop is IActivatableLifetime activatableLifetime)
+            {
+                activatableLifetime.Activated -= OnApplicationActivated;
+            }
+
             _trayIcon?.Dispose();
             _desktop?.Shutdown();
         }
+
+        private static void InstallMacApplicationShouldHandleReopenHandler()
+        {
+            if (!OperatingSystem.IsMacOS() || s_applicationShouldHandleReopen is not null)
+            {
+                return;
+            }
+
+            var application = objc_msgSend(objc_getClass("NSApplication"), sel_registerName("sharedApplication"));
+            var applicationDelegate = objc_msgSend(application, sel_registerName("delegate"));
+            if (applicationDelegate == IntPtr.Zero)
+            {
+                return;
+            }
+
+            var selector = sel_registerName("applicationShouldHandleReopen:hasVisibleWindows:");
+            var method = class_getInstanceMethod(object_getClass(applicationDelegate), selector);
+            if (method == IntPtr.Zero)
+            {
+                return;
+            }
+
+            s_applicationShouldHandleReopen = ApplicationShouldHandleReopen;
+            s_applicationShouldHandleReopenMethod = method;
+            s_originalApplicationShouldHandleReopenImp = method_setImplementation(
+                method,
+                Marshal.GetFunctionPointerForDelegate(s_applicationShouldHandleReopen));
+
+            if (s_originalApplicationShouldHandleReopenImp != IntPtr.Zero)
+            {
+                s_originalApplicationShouldHandleReopen =
+                    Marshal.GetDelegateForFunctionPointer<ApplicationShouldHandleReopenDelegate>(
+                        s_originalApplicationShouldHandleReopenImp);
+            }
+        }
+
+        private static void RestoreMacApplicationShouldHandleReopenHandler()
+        {
+            if (s_applicationShouldHandleReopenMethod != IntPtr.Zero &&
+                s_originalApplicationShouldHandleReopenImp != IntPtr.Zero)
+            {
+                method_setImplementation(
+                    s_applicationShouldHandleReopenMethod,
+                    s_originalApplicationShouldHandleReopenImp);
+            }
+
+            s_applicationShouldHandleReopen = null;
+            s_originalApplicationShouldHandleReopen = null;
+            s_applicationShouldHandleReopenMethod = IntPtr.Zero;
+            s_originalApplicationShouldHandleReopenImp = IntPtr.Zero;
+        }
+
+        [return: MarshalAs(UnmanagedType.I1)]
+        private static bool ApplicationShouldHandleReopen(
+            IntPtr self,
+            IntPtr selector,
+            IntPtr application,
+            [MarshalAs(UnmanagedType.I1)] bool hasVisibleWindows)
+        {
+            if (Current is App app)
+            {
+                app.RequestShowDetailWindow();
+            }
+
+            return s_originalApplicationShouldHandleReopen?.Invoke(self, selector, application, hasVisibleWindows) ?? true;
+        }
+
+        [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_getClass")]
+        private static extern IntPtr objc_getClass(string name);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "object_getClass")]
+        private static extern IntPtr object_getClass(IntPtr obj);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "class_getInstanceMethod")]
+        private static extern IntPtr class_getInstanceMethod(IntPtr cls, IntPtr name);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "method_setImplementation")]
+        private static extern IntPtr method_setImplementation(IntPtr method, IntPtr imp);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "sel_registerName")]
+        private static extern IntPtr sel_registerName(string name);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+        private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.I1)]
+        private delegate bool ApplicationShouldHandleReopenDelegate(
+            IntPtr self,
+            IntPtr selector,
+            IntPtr application,
+            [MarshalAs(UnmanagedType.I1)] bool hasVisibleWindows);
     }
 }
