@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using UsageMonitor.Models;
 using UsageMonitor.Services;
 
 namespace UsageMonitor
@@ -30,12 +31,12 @@ namespace UsageMonitor
                         lines.Add($"{limit.DisplayName} ({limit.LimitId})");
                         if (limit.Primary is not null)
                         {
-                            lines.Add($"  5h: {limit.Primary.LeftPercent}% left, resets {limit.Primary.ResetsAt?.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+                            lines.Add($"  {QuotaWindowLabels.FormatDuration(limit.Primary.WindowDurationMinutes)}: {limit.Primary.LeftPercent}% left, resets {limit.Primary.ResetsAt?.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
                         }
 
                         if (limit.Secondary is not null)
                         {
-                            lines.Add($"  7d: {limit.Secondary.LeftPercent}% left, resets {limit.Secondary.ResetsAt?.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+                            lines.Add($"  {QuotaWindowLabels.FormatDuration(limit.Secondary.WindowDurationMinutes)}: {limit.Secondary.LeftPercent}% left, resets {limit.Secondary.ResetsAt?.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
                         }
                     }
 

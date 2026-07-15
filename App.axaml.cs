@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -273,21 +274,29 @@ namespace UsageMonitor
                 return "Codex Usage Monitor\nCodex quota unavailable.";
             }
 
-            return string.Join(Environment.NewLine,
-                "Codex Usage",
-                BuildWindowLine("5h", codex.Primary),
-                BuildWindowLine("7d", codex.Secondary),
-                $"Updated {refreshedAt.ToLocalTime():HH:mm:ss}");
-        }
-
-        private static string BuildWindowLine(string label, QuotaWindow? window)
-        {
-            if (window is null)
+            var lines = new List<string> { "Codex Usage" };
+            if (codex.Primary is not null)
             {
-                return $"{label} [----------] unknown";
+                lines.Add(BuildWindowLine(codex.Primary));
             }
 
-            return $"{label} {BuildBar(window.LeftPercent)} {window.LeftPercent}% left, {FormatReset(window.ResetsAt)}";
+            if (codex.Secondary is not null)
+            {
+                lines.Add(BuildWindowLine(codex.Secondary));
+            }
+
+            if (lines.Count == 1)
+            {
+                lines.Add("Quota windows unavailable.");
+            }
+
+            lines.Add($"Updated {refreshedAt.ToLocalTime():HH:mm:ss}");
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string BuildWindowLine(QuotaWindow window)
+        {
+            return $"{QuotaWindowLabels.FormatDuration(window.WindowDurationMinutes)} {BuildBar(window.LeftPercent)} {window.LeftPercent}% left, {FormatReset(window.ResetsAt)}";
         }
 
         private static string BuildBar(int leftPercent)

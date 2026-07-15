@@ -15,12 +15,12 @@ public sealed class QuotaLimitViewModel
         var windows = new List<QuotaWindowViewModel>();
         if (limit.Primary is not null)
         {
-            windows.Add(new QuotaWindowViewModel("5h limit", limit.Primary));
+            windows.Add(new QuotaWindowViewModel(limit.Primary));
         }
 
         if (limit.Secondary is not null)
         {
-            windows.Add(new QuotaWindowViewModel("7d limit", limit.Secondary));
+            windows.Add(new QuotaWindowViewModel(limit.Secondary));
         }
 
         Windows = windows;

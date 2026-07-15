@@ -4,9 +4,9 @@ namespace UsageMonitor.Models;
 
 public sealed class QuotaWindowViewModel
 {
-    public QuotaWindowViewModel(string title, QuotaWindow window)
+    public QuotaWindowViewModel(QuotaWindow window)
     {
-        Title = title;
+        Title = $"{QuotaWindowLabels.FormatDuration(window.WindowDurationMinutes)} limit";
         UsedPercent = window.UsedPercent;
         LeftPercent = window.LeftPercent;
         WindowDurationMinutes = window.WindowDurationMinutes;
@@ -31,7 +31,5 @@ public sealed class QuotaWindowViewModel
         ? "reset unknown"
         : $"resets {ResetsAt:ddd HH:mm}";
 
-    public string WindowText => WindowDurationMinutes >= 1440
-        ? $"{WindowDurationMinutes / 1440}d window"
-        : $"{WindowDurationMinutes / 60}h window";
+    public string WindowText => $"{QuotaWindowLabels.FormatDuration(WindowDurationMinutes)} window";
 }
