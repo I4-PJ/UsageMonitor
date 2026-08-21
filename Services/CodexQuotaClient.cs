@@ -86,7 +86,11 @@ public sealed class CodexQuotaClient
 
         AddShellPathHints(startInfo);
 
-        if (TryUseCachedCodexCli(startInfo))
+        if (TryUseInstalledCodexCli(startInfo))
+        {
+            startInfo.ArgumentList.Add("app-server");
+        }
+        else if (TryUseCachedCodexCli(startInfo))
         {
             startInfo.ArgumentList.Add("app-server");
         }
@@ -157,6 +161,34 @@ public sealed class CodexQuotaClient
         {
             startInfo.Environment["PATH"] = string.Join(Path.PathSeparator, paths.Distinct(StringComparer.Ordinal).ToArray());
         }
+    }
+
+    private static bool TryUseInstalledCodexCli(ProcessStartInfo startInfo)
+    {
+        var pathValue = startInfo.Environment.TryGetValue("PATH", out var path) ? path : null;
+        var executableName = OperatingSystem.IsWindows() ? "codex.exe" : "codex";
+        var codexPath = FindExecutableOnPath(executableName, pathValue);
+
+        if (codexPath is null && OperatingSystem.IsMacOS())
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var candidates = new[]
+            {
+                "/Applications/Codex.app/Contents/Resources/codex",
+                "/Applications/ChatGPT.app/Contents/Resources/codex",
+                Path.Combine(home, "Applications", "Codex.app", "Contents", "Resources", "codex"),
+                Path.Combine(home, "Applications", "ChatGPT.app", "Contents", "Resources", "codex")
+            };
+            codexPath = candidates.FirstOrDefault(File.Exists);
+        }
+
+        if (codexPath is null)
+        {
+            return false;
+        }
+
+        startInfo.FileName = codexPath;
+        return true;
     }
 
     private static void AddPathIfDirectoryExists(List<string> paths, string path)

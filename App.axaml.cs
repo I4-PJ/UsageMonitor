@@ -175,7 +175,8 @@ namespace UsageMonitor
                     };
                     _detailWindow.Closing += (_, args) =>
                     {
-                        if (_isShuttingDown)
+                        if (_isShuttingDown ||
+                            args.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown)
                         {
                             return;
                         }
