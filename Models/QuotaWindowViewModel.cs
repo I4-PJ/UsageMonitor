@@ -27,6 +27,8 @@ public sealed class QuotaWindowViewModel
 
     public string LeftText => $"{LeftPercent}% left";
 
+    public string RemainingText => $"{LeftPercent}%";
+
     public string ResetText => ResetsAt is null
         ? "reset unknown"
         : $"resets {ResetsAt:ddd HH:mm}";

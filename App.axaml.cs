@@ -65,7 +65,7 @@ namespace UsageMonitor
 
                 CreateTrayIcon();
                 StartRefreshLoop(settings.RefreshIntervalMinutes);
-                RefreshQuota();
+                _ = LoadHistoryAndRefreshAsync();
                 Dispatcher.UIThread.Post(() =>
                 {
                     InstallMacApplicationShouldHandleReopenHandler();
@@ -133,6 +133,16 @@ namespace UsageMonitor
         private void UpdateRefreshInterval(int refreshIntervalMinutes)
         {
             StartRefreshLoop(refreshIntervalMinutes);
+        }
+
+        private async Task LoadHistoryAndRefreshAsync()
+        {
+            if (_viewModel is not null)
+            {
+                await _viewModel.LoadHistoryAsync();
+            }
+
+            RefreshQuota();
         }
 
         private async Task RunRefreshLoopAsync(int refreshIntervalMinutes, CancellationToken cancellationToken)
