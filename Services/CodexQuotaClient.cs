@@ -55,9 +55,9 @@ public sealed class CodexQuotaClient
                 usageSummary = ParseUsage(usageResult);
             }
         }
-        catch (InvalidOperationException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Older app-server builds may not support account/usage/read.
+            // Account usage is optional and older or transient app-server builds may not support it.
         }
 
         TryStop(process);
@@ -532,30 +532,53 @@ public sealed class CodexQuotaClient
             ReadUnixSeconds(window, "resetsAt"));
     }
 
-    private static UsageSummary ParseUsage(JsonElement element)
+    internal static UsageSummary ParseUsage(JsonElement element)
     {
         element.TryGetProperty("summary", out var summary);
-        var todayTokens = ReadLatestDailyTokens(element);
+        var dailyUsageBuckets = ReadDailyUsageBuckets(element);
+        long? todayTokens = dailyUsageBuckets.Count == 0
+            ? null
+            : dailyUsageBuckets[^1].Tokens;
 
         return new UsageSummary(
             ReadNullableLong(summary, "lifetimeTokens"),
             ReadNullableLong(summary, "peakDailyTokens"),
             todayTokens,
             ReadNullableInt(summary, "currentStreakDays"),
-            ReadNullableInt(summary, "longestStreakDays"));
+            ReadNullableInt(summary, "longestStreakDays"),
+            ReadNullableLong(summary, "longestRunningTurnSec"),
+            dailyUsageBuckets);
     }
 
-    private static long? ReadLatestDailyTokens(JsonElement element)
+    private static IReadOnlyList<DailyUsageBucket> ReadDailyUsageBuckets(JsonElement element)
     {
         if (!element.TryGetProperty("dailyUsageBuckets", out var buckets) ||
-            buckets.ValueKind != JsonValueKind.Array ||
-            buckets.GetArrayLength() == 0)
+            buckets.ValueKind != JsonValueKind.Array)
         {
-            return null;
+            return Array.Empty<DailyUsageBucket>();
         }
 
-        var latest = buckets.EnumerateArray().Last();
-        return ReadNullableLong(latest, "tokens");
+        var parsed = new List<DailyUsageBucket>();
+        foreach (var bucket in buckets.EnumerateArray())
+        {
+            if (bucket.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var startDate = ReadString(bucket, "startDate");
+            var tokens = ReadNullableLong(bucket, "tokens");
+            if (string.IsNullOrWhiteSpace(startDate) || tokens is null)
+            {
+                continue;
+            }
+
+            parsed.Add(new DailyUsageBucket(startDate, Math.Max(0, tokens.Value)));
+        }
+
+        return parsed
+            .OrderBy(bucket => bucket.StartDate, StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static bool TryGetResult(JsonElement response, out JsonElement result)
@@ -580,7 +603,7 @@ public sealed class CodexQuotaClient
 
     private static int? ReadNullableInt(JsonElement element, string name)
     {
-        return element.ValueKind != JsonValueKind.Undefined &&
+        return element.ValueKind == JsonValueKind.Object &&
             element.TryGetProperty(name, out var property) &&
             property.ValueKind == JsonValueKind.Number
             ? property.GetInt32()
@@ -596,7 +619,7 @@ public sealed class CodexQuotaClient
 
     private static long? ReadNullableLong(JsonElement element, string name)
     {
-        return element.ValueKind != JsonValueKind.Undefined &&
+        return element.ValueKind == JsonValueKind.Object &&
             element.TryGetProperty(name, out var property) &&
             property.ValueKind == JsonValueKind.Number
             ? property.GetInt64()

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly AppSettings _settings;
     private readonly AppSettingsStore _settingsStore;
     private readonly QuotaHistoryStore _historyStore;
+    private readonly UsageHistoryStore _usageHistoryStore;
     private readonly QuotaHistoryAnalyzer _historyAnalyzer;
 
     public event Action<QuotaSnapshot>? QuotaRefreshed;
@@ -51,6 +53,33 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _resetCreditsText = "Reset credits: unknown";
 
     [ObservableProperty]
+    private bool _hasUsageSummary;
+
+    [ObservableProperty]
+    private bool _hasDailyUsage;
+
+    [ObservableProperty]
+    private string _todayTokensValueText = "Unknown";
+
+    [ObservableProperty]
+    private string _lifetimeTokensText = "Unknown";
+
+    [ObservableProperty]
+    private string _peakDailyTokensText = "Unknown";
+
+    [ObservableProperty]
+    private string _currentStreakText = "Unknown";
+
+    [ObservableProperty]
+    private string _longestStreakText = "Unknown";
+
+    [ObservableProperty]
+    private string _longestRunningTurnText = "Unknown";
+
+    [ObservableProperty]
+    private string _dailyUsageStatusText = "Daily account activity is not available from this Codex version.";
+
+    [ObservableProperty]
     private bool _hasQuota;
 
     [ObservableProperty]
@@ -75,6 +104,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<QuotaHistoryChartViewModel> HistoryCharts { get; } = [];
 
+    public ObservableCollection<DailyUsageBucketViewModel> DailyUsageBuckets { get; } = [];
+
     public MainWindowViewModel()
         : this(new AppSettingsStore())
     {
@@ -86,7 +117,7 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     public MainWindowViewModel(AppSettingsStore settingsStore, AppSettings settings)
-        : this(settingsStore, settings, new QuotaHistoryStore(), new QuotaHistoryAnalyzer())
+        : this(settingsStore, settings, new QuotaHistoryStore(), new UsageHistoryStore(), new QuotaHistoryAnalyzer())
     {
     }
 
@@ -95,10 +126,21 @@ public partial class MainWindowViewModel : ViewModelBase
         AppSettings settings,
         QuotaHistoryStore historyStore,
         QuotaHistoryAnalyzer historyAnalyzer)
+        : this(settingsStore, settings, historyStore, new UsageHistoryStore(), historyAnalyzer)
+    {
+    }
+
+    public MainWindowViewModel(
+        AppSettingsStore settingsStore,
+        AppSettings settings,
+        QuotaHistoryStore historyStore,
+        UsageHistoryStore usageHistoryStore,
+        QuotaHistoryAnalyzer historyAnalyzer)
     {
         _settingsStore = settingsStore;
         _settings = settings;
         _historyStore = historyStore;
+        _usageHistoryStore = usageHistoryStore;
         _historyAnalyzer = historyAnalyzer;
         SelectedRefreshIntervalOption = RefreshIntervalOptions.FirstOrDefault(option => option.Minutes == settings.RefreshIntervalMinutes)
             ?? RefreshIntervalOptions.First(option => option.Minutes == 5);
@@ -129,6 +171,7 @@ public partial class MainWindowViewModel : ViewModelBase
             TodayTokensText = snapshot.Usage?.TodayTokens is null
                 ? "Today tokens: unknown"
                 : $"Today tokens: {snapshot.Usage.TodayTokens.Value:N0}";
+            UpdateUsageSummary(snapshot.Usage);
             await UpdateHistoryAsync(snapshot);
             StatusText = "Quota loaded";
             QuotaRefreshed?.Invoke(snapshot);
@@ -155,7 +198,92 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        string? usageHistoryWarning = null;
+        try
+        {
+            await _usageHistoryStore.RecordAsync(snapshot);
+        }
+        catch (Exception ex)
+        {
+            usageHistoryWarning = $"Account usage history could not be updated: {ex.Message}";
+        }
+
         await LoadHistoryAsync(snapshot.RefreshedAt);
+        if (usageHistoryWarning is not null)
+        {
+            HistoryStatusText = $"{HistoryStatusText} {usageHistoryWarning}";
+        }
+    }
+
+    private void UpdateUsageSummary(UsageSummary? usage)
+    {
+        DailyUsageBuckets.Clear();
+        HasUsageSummary = usage is not null;
+        HasDailyUsage = usage?.DailyUsageBuckets.Count > 0;
+
+        if (usage is null)
+        {
+            TodayTokensValueText = "Unknown";
+            LifetimeTokensText = "Unknown";
+            PeakDailyTokensText = "Unknown";
+            CurrentStreakText = "Unknown";
+            LongestStreakText = "Unknown";
+            LongestRunningTurnText = "Unknown";
+            DailyUsageStatusText = "Daily account activity is not available from this Codex version.";
+            return;
+        }
+
+        TodayTokensValueText = FormatTokens(usage.TodayTokens);
+        LifetimeTokensText = FormatTokens(usage.LifetimeTokens);
+        PeakDailyTokensText = FormatTokens(usage.PeakDailyTokens);
+        CurrentStreakText = FormatDays(usage.CurrentStreakDays);
+        LongestStreakText = FormatDays(usage.LongestStreakDays);
+        LongestRunningTurnText = FormatDuration(usage.LongestRunningTurnSeconds);
+
+        var recentBuckets = usage.DailyUsageBuckets.TakeLast(14).ToArray();
+        var peakTokens = recentBuckets.Length == 0 ? 0 : recentBuckets.Max(bucket => bucket.Tokens);
+        foreach (var bucket in recentBuckets)
+        {
+            DailyUsageBuckets.Add(new DailyUsageBucketViewModel(bucket, peakTokens));
+        }
+
+        DailyUsageStatusText = recentBuckets.Length switch
+        {
+            0 => "No daily token totals were returned.",
+            1 => "1 daily account total returned by Codex.",
+            _ => $"{recentBuckets.Length} recent daily account totals returned by Codex."
+        };
+    }
+
+    private static string FormatTokens(long? tokens) => tokens is null ? "Unknown" : $"{tokens.Value:N0}";
+
+    private static string FormatDays(int? days) => days switch
+    {
+        null => "Unknown",
+        1 => "1 day",
+        _ => $"{days.Value:N0} days"
+    };
+
+    private static string FormatDuration(long? totalSeconds)
+    {
+        if (totalSeconds is null)
+        {
+            return "Unknown";
+        }
+
+        var duration = TimeSpan.FromSeconds(Math.Max(0, totalSeconds.Value));
+        if (duration.TotalHours >= 1)
+        {
+            return string.Format(
+                CultureInfo.CurrentCulture,
+                "{0:N0}h {1}m",
+                Math.Floor(duration.TotalHours),
+                duration.Minutes);
+        }
+
+        return duration.TotalMinutes >= 1
+            ? $"{Math.Floor(duration.TotalMinutes):N0}m {duration.Seconds}s"
+            : $"{duration.Seconds}s";
     }
 
     public async Task LoadHistoryAsync(DateTimeOffset? now = null)

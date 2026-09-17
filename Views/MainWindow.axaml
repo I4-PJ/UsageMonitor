@@ -204,6 +204,79 @@
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
+            <TabItem Header="Account activity" AutomationProperties.Name="Account activity">
+                <ScrollViewer Margin="0,14,0,0" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <Grid ColumnDefinitions="*,Auto" Margin="2,0,2,10">
+                            <TextBlock Text="Codex account statistics" Classes="eyebrow"/>
+                            <TextBlock Grid.Column="1" Text="Account-wide" Classes="muted"/>
+                        </Grid>
+                        <Border Classes="card" IsVisible="{Binding !HasUsageSummary}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Account statistics unavailable" FontSize="14" FontWeight="SemiBold"/>
+                                <TextBlock Text="This Codex version or account did not return account usage statistics. Quota monitoring remains available."
+                                           Classes="muted" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="card" IsVisible="{Binding HasUsageSummary}">
+                            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto">
+                                <StackPanel Spacing="4" Margin="0,0,18,18">
+                                    <TextBlock Text="Today" Classes="muted"/>
+                                    <TextBlock Text="{Binding TodayTokensValueText}" FontSize="17" FontWeight="SemiBold"/>
+                                    <TextBlock Text="tokens" Classes="muted"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,18,18">
+                                    <TextBlock Text="Lifetime" Classes="muted"/>
+                                    <TextBlock Text="{Binding LifetimeTokensText}" FontSize="17" FontWeight="SemiBold"/>
+                                    <TextBlock Text="tokens" Classes="muted"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Spacing="4" Margin="0,0,0,18">
+                                    <TextBlock Text="Peak day" Classes="muted"/>
+                                    <TextBlock Text="{Binding PeakDailyTokensText}" FontSize="17" FontWeight="SemiBold"/>
+                                    <TextBlock Text="tokens" Classes="muted"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,18,0">
+                                    <TextBlock Text="Current streak" Classes="muted"/>
+                                    <TextBlock Text="{Binding CurrentStreakText}" FontSize="15" FontWeight="SemiBold"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4" Margin="0,0,18,0">
+                                    <TextBlock Text="Longest streak" Classes="muted"/>
+                                    <TextBlock Text="{Binding LongestStreakText}" FontSize="15" FontWeight="SemiBold"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4">
+                                    <TextBlock Text="Longest task" Classes="muted"/>
+                                    <TextBlock Text="{Binding LongestRunningTurnText}" FontSize="15" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Grid ColumnDefinitions="*,Auto" Margin="2,6,2,10">
+                            <TextBlock Text="Recent daily tokens" Classes="eyebrow"/>
+                            <TextBlock Grid.Column="1" Text="Up to 14 days" Classes="muted"/>
+                        </Grid>
+                        <Border Classes="card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="{Binding DailyUsageStatusText}" Classes="muted" TextWrapping="Wrap"/>
+                                <ItemsControl ItemsSource="{Binding DailyUsageBuckets}" IsVisible="{Binding HasDailyUsage}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:DailyUsageBucketViewModel">
+                                            <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto" Margin="0,2,0,7">
+                                                <TextBlock Text="{Binding DateText}" Classes="muted"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding TokensText}" HorizontalAlignment="Right"
+                                                           FontSize="12" Foreground="#CCD7E6"/>
+                                                <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Minimum="0" Maximum="100" Height="5"
+                                                             Margin="0,6,0,0" CornerRadius="3" Value="{Binding ProgressValue}"
+                                                             Foreground="#8CB5FF" Background="#293446"
+                                                             AutomationProperties.Name="Daily token usage"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
         </TabControl>
         <Border Grid.Row="3" BorderBrush="#243041" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,8,0,0">
             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">

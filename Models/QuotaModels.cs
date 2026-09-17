@@ -30,4 +30,10 @@ public sealed record UsageSummary(
     long? PeakDailyTokens,
     long? TodayTokens,
     int? CurrentStreakDays,
-    int? LongestStreakDays);
+    int? LongestStreakDays,
+    long? LongestRunningTurnSeconds,
+    IReadOnlyList<DailyUsageBucket> DailyUsageBuckets);
+
+public sealed record DailyUsageBucket(
+    string StartDate,
+    long Tokens);
