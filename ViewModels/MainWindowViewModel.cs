@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,11 +13,10 @@ namespace UsageMonitor.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    private readonly CodexQuotaClient _quotaClient = new();
+    private readonly ICodexQuotaClient _quotaClient;
     private readonly AppSettings _settings;
     private readonly AppSettingsStore _settingsStore;
     private readonly QuotaHistoryStore _historyStore;
-    private readonly UsageHistoryStore _usageHistoryStore;
     private readonly QuotaHistoryAnalyzer _historyAnalyzer;
 
     public event Action<QuotaSnapshot>? QuotaRefreshed;
@@ -38,46 +36,19 @@ public partial class MainWindowViewModel : ViewModelBase
     ];
 
     [ObservableProperty]
-    private string _statusText = "Ready";
+    private string _statusText = "Waiting for first refresh";
 
     [ObservableProperty]
-    private string _lastUpdatedText = "Not refreshed yet";
+    private string _statusColor = "#8E9BAC";
 
     [ObservableProperty]
-    private string _summaryText = "Refresh to read Codex quota.";
+    private string _lastUpdatedText = "Not updated yet";
 
     [ObservableProperty]
-    private string _todayTokensText = "Today tokens: unknown";
+    private bool _hasRefreshError;
 
     [ObservableProperty]
-    private string _resetCreditsText = "Reset credits: unknown";
-
-    [ObservableProperty]
-    private bool _hasUsageSummary;
-
-    [ObservableProperty]
-    private bool _hasDailyUsage;
-
-    [ObservableProperty]
-    private string _todayTokensValueText = "Unknown";
-
-    [ObservableProperty]
-    private string _lifetimeTokensText = "Unknown";
-
-    [ObservableProperty]
-    private string _peakDailyTokensText = "Unknown";
-
-    [ObservableProperty]
-    private string _currentStreakText = "Unknown";
-
-    [ObservableProperty]
-    private string _longestStreakText = "Unknown";
-
-    [ObservableProperty]
-    private string _longestRunningTurnText = "Unknown";
-
-    [ObservableProperty]
-    private string _dailyUsageStatusText = "Daily account activity is not available from this Codex version.";
+    private string _refreshErrorText = string.Empty;
 
     [ObservableProperty]
     private bool _hasQuota;
@@ -104,8 +75,6 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<QuotaHistoryChartViewModel> HistoryCharts { get; } = [];
 
-    public ObservableCollection<DailyUsageBucketViewModel> DailyUsageBuckets { get; } = [];
-
     public MainWindowViewModel()
         : this(new AppSettingsStore())
     {
@@ -117,7 +86,7 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     public MainWindowViewModel(AppSettingsStore settingsStore, AppSettings settings)
-        : this(settingsStore, settings, new QuotaHistoryStore(), new UsageHistoryStore(), new QuotaHistoryAnalyzer())
+        : this(settingsStore, settings, new QuotaHistoryStore(), new QuotaHistoryAnalyzer())
     {
     }
 
@@ -126,22 +95,22 @@ public partial class MainWindowViewModel : ViewModelBase
         AppSettings settings,
         QuotaHistoryStore historyStore,
         QuotaHistoryAnalyzer historyAnalyzer)
-        : this(settingsStore, settings, historyStore, new UsageHistoryStore(), historyAnalyzer)
+        : this(settingsStore, settings, historyStore, historyAnalyzer, new CodexQuotaClient())
     {
     }
 
-    public MainWindowViewModel(
+    internal MainWindowViewModel(
         AppSettingsStore settingsStore,
         AppSettings settings,
         QuotaHistoryStore historyStore,
-        UsageHistoryStore usageHistoryStore,
-        QuotaHistoryAnalyzer historyAnalyzer)
+        QuotaHistoryAnalyzer historyAnalyzer,
+        ICodexQuotaClient quotaClient)
     {
         _settingsStore = settingsStore;
         _settings = settings;
         _historyStore = historyStore;
-        _usageHistoryStore = usageHistoryStore;
         _historyAnalyzer = historyAnalyzer;
+        _quotaClient = quotaClient;
         SelectedRefreshIntervalOption = RefreshIntervalOptions.FirstOrDefault(option => option.Minutes == settings.RefreshIntervalMinutes)
             ?? RefreshIntervalOptions.First(option => option.Minutes == 5);
     }
@@ -151,7 +120,9 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            StatusText = "Refreshing Codex quota...";
+            HasRefreshError = false;
+            StatusText = "Refreshing…";
+            StatusColor = "#E9BD70";
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
             var snapshot = await _quotaClient.ReadQuotaAsync(timeout.Token);
             LastSnapshot = snapshot;
@@ -164,24 +135,18 @@ public partial class MainWindowViewModel : ViewModelBase
 
             HasQuota = Limits.Count > 0;
             LastUpdatedText = $"Updated {snapshot.RefreshedAt:HH:mm:ss}";
-            SummaryText = BuildSummaryText();
-            ResetCreditsText = snapshot.AvailableResetCredits is null
-                ? "Reset credits: unknown"
-                : $"Reset credits: {snapshot.AvailableResetCredits}";
-            TodayTokensText = snapshot.Usage?.TodayTokens is null
-                ? "Today tokens: unknown"
-                : $"Today tokens: {snapshot.Usage.TodayTokens.Value:N0}";
-            UpdateUsageSummary(snapshot.Usage);
             await UpdateHistoryAsync(snapshot);
-            StatusText = "Quota loaded";
+            StatusText = "Live";
+            StatusColor = "#78E0BE";
             QuotaRefreshed?.Invoke(snapshot);
         }
         catch (Exception ex)
         {
-            HasQuota = false;
-            StatusText = "Refresh failed";
-            SummaryText = ex.Message;
-            LastUpdatedText = $"Failed {DateTimeOffset.Now:HH:mm:ss}";
+            HasQuota = Limits.Count > 0;
+            HasRefreshError = true;
+            RefreshErrorText = BuildRefreshErrorText(ex);
+            StatusText = "Couldn’t refresh";
+            StatusColor = "#FF8A84";
             QuotaRefreshFailed?.Invoke();
         }
     }
@@ -192,98 +157,13 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             await _historyStore.RecordAsync(snapshot);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            HistoryStatusText = $"Quota loaded, but history could not be updated: {ex.Message}";
+            HistoryStatusText = "Quota loaded, but saved history could not be updated.";
             return;
-        }
-
-        string? usageHistoryWarning = null;
-        try
-        {
-            await _usageHistoryStore.RecordAsync(snapshot);
-        }
-        catch (Exception ex)
-        {
-            usageHistoryWarning = $"Account usage history could not be updated: {ex.Message}";
         }
 
         await LoadHistoryAsync(snapshot.RefreshedAt);
-        if (usageHistoryWarning is not null)
-        {
-            HistoryStatusText = $"{HistoryStatusText} {usageHistoryWarning}";
-        }
-    }
-
-    private void UpdateUsageSummary(UsageSummary? usage)
-    {
-        DailyUsageBuckets.Clear();
-        HasUsageSummary = usage is not null;
-        HasDailyUsage = usage?.DailyUsageBuckets.Count > 0;
-
-        if (usage is null)
-        {
-            TodayTokensValueText = "Unknown";
-            LifetimeTokensText = "Unknown";
-            PeakDailyTokensText = "Unknown";
-            CurrentStreakText = "Unknown";
-            LongestStreakText = "Unknown";
-            LongestRunningTurnText = "Unknown";
-            DailyUsageStatusText = "Daily account activity is not available from this Codex version.";
-            return;
-        }
-
-        TodayTokensValueText = FormatTokens(usage.TodayTokens);
-        LifetimeTokensText = FormatTokens(usage.LifetimeTokens);
-        PeakDailyTokensText = FormatTokens(usage.PeakDailyTokens);
-        CurrentStreakText = FormatDays(usage.CurrentStreakDays);
-        LongestStreakText = FormatDays(usage.LongestStreakDays);
-        LongestRunningTurnText = FormatDuration(usage.LongestRunningTurnSeconds);
-
-        var recentBuckets = usage.DailyUsageBuckets.TakeLast(14).ToArray();
-        var peakTokens = recentBuckets.Length == 0 ? 0 : recentBuckets.Max(bucket => bucket.Tokens);
-        foreach (var bucket in recentBuckets)
-        {
-            DailyUsageBuckets.Add(new DailyUsageBucketViewModel(bucket, peakTokens));
-        }
-
-        DailyUsageStatusText = recentBuckets.Length switch
-        {
-            0 => "No daily token totals were returned.",
-            1 => "1 daily account total returned by Codex.",
-            _ => $"{recentBuckets.Length} recent daily account totals returned by Codex."
-        };
-    }
-
-    private static string FormatTokens(long? tokens) => tokens is null ? "Unknown" : $"{tokens.Value:N0}";
-
-    private static string FormatDays(int? days) => days switch
-    {
-        null => "Unknown",
-        1 => "1 day",
-        _ => $"{days.Value:N0} days"
-    };
-
-    private static string FormatDuration(long? totalSeconds)
-    {
-        if (totalSeconds is null)
-        {
-            return "Unknown";
-        }
-
-        var duration = TimeSpan.FromSeconds(Math.Max(0, totalSeconds.Value));
-        if (duration.TotalHours >= 1)
-        {
-            return string.Format(
-                CultureInfo.CurrentCulture,
-                "{0:N0}h {1}m",
-                Math.Floor(duration.TotalHours),
-                duration.Minutes);
-        }
-
-        return duration.TotalMinutes >= 1
-            ? $"{Math.Floor(duration.TotalMinutes):N0}m {duration.Seconds}s"
-            : $"{duration.Seconds}s";
     }
 
     public async Task LoadHistoryAsync(DateTimeOffset? now = null)
@@ -311,9 +191,9 @@ public partial class MainWindowViewModel : ViewModelBase
                 _ => $"{sampleCount:N0} quota samples recorded over the last 15 days."
             };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            HistoryStatusText = $"Saved quota history could not be loaded: {ex.Message}";
+            HistoryStatusText = "Saved quota history could not be loaded.";
         }
     }
 
@@ -338,15 +218,35 @@ public partial class MainWindowViewModel : ViewModelBase
         HeadlineForecastDetail = $"{primaryCodex.CurrentStatus} · {primaryCodex.ForecastDetail}";
     }
 
-    private string BuildSummaryText()
+    private static string BuildRefreshErrorText(Exception exception)
     {
-        if (Limits.Count == 0)
+        if (exception is OperationCanceledException)
         {
-            return "No quota windows returned.";
+            return "The Codex service did not respond within 45 seconds.";
         }
 
-        var main = Limits.FirstOrDefault(limit => limit.LimitId == "codex") ?? Limits[0];
-        return $"{main.DisplayName}: {main.StatusText}";
+        var message = exception.GetBaseException().Message.Trim();
+        if (message.Contains("Missing optional dependency", StringComparison.OrdinalIgnoreCase))
+        {
+            return "The installed Codex command is incomplete. Update or reinstall ChatGPT/Codex, then refresh.";
+        }
+
+        if (message.Contains("before response", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("closed stdout", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Codex stopped before returning quota data. Reopen ChatGPT/Codex and try again.";
+        }
+
+        var firstLine = message.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(firstLine))
+        {
+            return "Codex quota data is temporarily unavailable.";
+        }
+
+        const int maxLength = 220;
+        return firstLine.Length <= maxLength
+            ? firstLine
+            : $"{firstLine[..maxLength]}…";
     }
 
     partial void OnSelectedRefreshIntervalOptionChanged(RefreshIntervalOption? value)

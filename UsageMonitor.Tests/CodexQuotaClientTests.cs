@@ -1,76 +1,79 @@
-using System.Text.Json;
 using UsageMonitor.Services;
 using Xunit;
 
 namespace UsageMonitor.Tests;
 
-public sealed class CodexQuotaClientTests
+public sealed class CodexQuotaClientTests : IDisposable
 {
+    private readonly string _directory = Path.Combine(
+        Path.GetTempPath(),
+        $"UsageMonitor.CodexQuotaClientTests.{Guid.NewGuid():N}");
+
     [Fact]
-    public void ParseUsage_RetainsSummaryAndAllDailyBuckets()
+    public void SelectCodexExecutable_PrefersBundledCliOverPath()
     {
-        using var document = JsonDocument.Parse(
-            """
-            {
-              "summary": {
-                "lifetimeTokens": 123456,
-                "peakDailyTokens": 45000,
-                "currentStreakDays": 4,
-                "longestStreakDays": 12,
-                "longestRunningTurnSec": 3661
-              },
-              "dailyUsageBuckets": [
-                { "startDate": "2026-09-17", "tokens": 2500 },
-                { "startDate": "2026-09-16", "tokens": 1000 }
-              ]
-            }
-            """);
+        var bundledPath = CreateExecutable("bundle", ExecutableName);
+        var pathDirectory = Path.Combine(_directory, "path");
+        CreateExecutable("path", ExecutableName);
 
-        var usage = CodexQuotaClient.ParseUsage(document.RootElement);
+        var selected = CodexQuotaClient.SelectCodexExecutable(
+            pathDirectory,
+            [bundledPath]);
 
-        Assert.Equal(123456, usage.LifetimeTokens);
-        Assert.Equal(45000, usage.PeakDailyTokens);
-        Assert.Equal(2500, usage.TodayTokens);
-        Assert.Equal(4, usage.CurrentStreakDays);
-        Assert.Equal(12, usage.LongestStreakDays);
-        Assert.Equal(3661, usage.LongestRunningTurnSeconds);
-        Assert.Collection(
-            usage.DailyUsageBuckets,
-            bucket =>
-            {
-                Assert.Equal("2026-09-16", bucket.StartDate);
-                Assert.Equal(1000, bucket.Tokens);
-            },
-            bucket =>
-            {
-                Assert.Equal("2026-09-17", bucket.StartDate);
-                Assert.Equal(2500, bucket.Tokens);
-            });
+        Assert.Equal(bundledPath, selected);
     }
 
     [Fact]
-    public void ParseUsage_ToleratesMissingAndMalformedOptionalData()
+    public void SelectCodexExecutable_RejectsTransientNpxCache()
     {
-        using var document = JsonDocument.Parse(
-            """
-            {
-              "summary": null,
-              "dailyUsageBuckets": [
-                null,
-                { "startDate": "", "tokens": 100 },
-                { "startDate": "2026-09-17" },
-                { "startDate": "2026-09-17", "tokens": -10 }
-              ]
-            }
-            """);
+        var npxBin = Path.Combine(_directory, ".npm", "_npx", "cache-key", "node_modules", ".bin");
+        CreateExecutable(npxBin, ExecutableName, isAbsoluteDirectory: true);
 
-        var usage = CodexQuotaClient.ParseUsage(document.RootElement);
+        var selected = CodexQuotaClient.SelectCodexExecutable(
+            npxBin,
+            []);
 
-        Assert.Null(usage.LifetimeTokens);
-        Assert.Null(usage.PeakDailyTokens);
-        Assert.Equal(0, usage.TodayTokens);
-        var bucket = Assert.Single(usage.DailyUsageBuckets);
-        Assert.Equal("2026-09-17", bucket.StartDate);
-        Assert.Equal(0, bucket.Tokens);
+        Assert.Null(selected);
+    }
+
+    [Fact]
+    public void SelectCodexExecutable_AcceptsStablePathInstall()
+    {
+        var pathDirectory = Path.Combine(_directory, "stable", "bin");
+        var executablePath = CreateExecutable(pathDirectory, ExecutableName, isAbsoluteDirectory: true);
+
+        var selected = CodexQuotaClient.SelectCodexExecutable(
+            pathDirectory,
+            []);
+
+        Assert.Equal(executablePath, selected);
+    }
+
+    private static string ExecutableName => OperatingSystem.IsWindows() ? "codex.exe" : "codex";
+
+    private string CreateExecutable(string directory, string fileName, bool isAbsoluteDirectory = false)
+    {
+        var resolvedDirectory = isAbsoluteDirectory
+            ? directory
+            : Path.Combine(_directory, directory);
+        Directory.CreateDirectory(resolvedDirectory);
+        var path = Path.Combine(resolvedDirectory, fileName);
+        File.WriteAllText(path, string.Empty);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(
+                path,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        return path;
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_directory))
+        {
+            Directory.Delete(_directory, recursive: true);
+        }
     }
 }

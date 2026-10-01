@@ -11,7 +11,12 @@ using UsageMonitor.Models;
 
 namespace UsageMonitor.Services;
 
-public sealed class CodexQuotaClient
+public interface ICodexQuotaClient
+{
+    Task<QuotaSnapshot> ReadQuotaAsync(CancellationToken cancellationToken);
+}
+
+public sealed class CodexQuotaClient : ICodexQuotaClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -45,28 +50,10 @@ public sealed class CodexQuotaClient
         using var rateLimitResponse = await ReadResponseAsync(reader, process, stderrTask, 2, cancellationToken);
         var rateLimits = ParseRateLimits(rateLimitResponse.RootElement);
 
-        UsageSummary? usageSummary = null;
-        try
-        {
-            await SendRequestAsync(writer, 3, "account/usage/read", null, cancellationToken);
-            using var usageResponse = await ReadResponseAsync(reader, process, stderrTask, 3, cancellationToken);
-            if (TryGetResult(usageResponse.RootElement, out var usageResult))
-            {
-                usageSummary = ParseUsage(usageResult);
-            }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Account usage is optional and older or transient app-server builds may not support it.
-        }
-
         TryStop(process);
         _ = stderrTask;
 
-        return rateLimits with
-        {
-            Usage = usageSummary
-        };
+        return rateLimits;
     }
 
     private static Process StartAppServer()
@@ -86,27 +73,13 @@ public sealed class CodexQuotaClient
 
         AddShellPathHints(startInfo);
 
-        if (TryUseInstalledCodexCli(startInfo))
+        if (!TryUseInstalledCodexCli(startInfo))
         {
-            startInfo.ArgumentList.Add("app-server");
+            throw new InvalidOperationException(
+                "Codex CLI was not found. Install or update ChatGPT/Codex, open it once, and refresh again.");
         }
-        else if (TryUseCachedCodexCli(startInfo))
-        {
-            startInfo.ArgumentList.Add("app-server");
-        }
-        else if (TryUseNodeNpx(startInfo))
-        {
-            AddCodexNpxArguments(startInfo);
-        }
-        else if (TryUseUnixNpx(startInfo))
-        {
-            AddCodexNpxArguments(startInfo);
-        }
-        else
-        {
-            startInfo.FileName = "npx";
-            AddCodexNpxArguments(startInfo);
-        }
+
+        startInfo.ArgumentList.Add("app-server");
 
         return Process.Start(startInfo)
             ?? throw new InvalidOperationException("Unable to start Codex app-server.");
@@ -166,21 +139,29 @@ public sealed class CodexQuotaClient
     private static bool TryUseInstalledCodexCli(ProcessStartInfo startInfo)
     {
         var pathValue = startInfo.Environment.TryGetValue("PATH", out var path) ? path : null;
-        var executableName = OperatingSystem.IsWindows() ? "codex.exe" : "codex";
-        var codexPath = FindExecutableOnPath(executableName, pathValue);
+        var bundledCandidates = Array.Empty<string>();
 
-        if (codexPath is null && OperatingSystem.IsMacOS())
+        if (OperatingSystem.IsMacOS())
         {
             var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            var candidates = new[]
-            {
+            bundledCandidates =
+            [
+                "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+                "/Applications/Codex.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+                Path.Combine(home, "Applications", "ChatGPT.app", "Contents", "Resources", "codex-cli", "CodexCLI.app", "Contents", "MacOS", "codex"),
+                Path.Combine(home, "Applications", "Codex.app", "Contents", "Resources", "codex-cli", "CodexCLI.app", "Contents", "MacOS", "codex"),
+                "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
+                "/Applications/Codex.app/Contents/Resources/codex-cli/bin/codex",
+                Path.Combine(home, "Applications", "ChatGPT.app", "Contents", "Resources", "codex-cli", "bin", "codex"),
+                Path.Combine(home, "Applications", "Codex.app", "Contents", "Resources", "codex-cli", "bin", "codex"),
                 "/Applications/Codex.app/Contents/Resources/codex",
                 "/Applications/ChatGPT.app/Contents/Resources/codex",
                 Path.Combine(home, "Applications", "Codex.app", "Contents", "Resources", "codex"),
                 Path.Combine(home, "Applications", "ChatGPT.app", "Contents", "Resources", "codex")
-            };
-            codexPath = candidates.FirstOrDefault(File.Exists);
+            ];
         }
+
+        var codexPath = SelectCodexExecutable(pathValue, bundledCandidates);
 
         if (codexPath is null)
         {
@@ -189,6 +170,59 @@ public sealed class CodexQuotaClient
 
         startInfo.FileName = codexPath;
         return true;
+    }
+
+    internal static string? SelectCodexExecutable(
+        string? pathValue,
+        IEnumerable<string> bundledCandidates)
+    {
+        var bundledPath = bundledCandidates.FirstOrDefault(IsRunnableExecutable);
+        if (bundledPath is not null)
+        {
+            return bundledPath;
+        }
+
+        var executableName = OperatingSystem.IsWindows() ? "codex.exe" : "codex";
+        var pathCandidate = FindExecutableOnPath(executableName, pathValue);
+        return pathCandidate is not null &&
+            IsRunnableExecutable(pathCandidate) &&
+            !IsTransientNpxPath(pathCandidate)
+            ? pathCandidate
+            : null;
+    }
+
+    private static bool IsRunnableExecutable(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            return true;
+        }
+
+        try
+        {
+            var mode = File.GetUnixFileMode(path);
+            const UnixFileMode executeBits =
+                UnixFileMode.UserExecute |
+                UnixFileMode.GroupExecute |
+                UnixFileMode.OtherExecute;
+            return (mode & executeBits) != 0;
+        }
+        catch (PlatformNotSupportedException)
+        {
+            return true;
+        }
+    }
+
+    private static bool IsTransientNpxPath(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        return normalized.Contains("/.npm/_npx/", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("/npm-cache/_npx/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void AddPathIfDirectoryExists(List<string> paths, string path)
@@ -238,91 +272,6 @@ public sealed class CodexQuotaClient
         }
     }
 
-    private static bool TryUseCachedCodexCli(ProcessStartInfo startInfo)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return false;
-        }
-
-        var nodePath = GetWindowsNodePath();
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var npxCachePath = Path.Combine(localAppData, "npm-cache", "_npx");
-
-        if (nodePath is null || !Directory.Exists(npxCachePath))
-        {
-            return false;
-        }
-
-        var codexCliPath = Directory
-            .EnumerateFiles(npxCachePath, "codex.js", SearchOption.AllDirectories)
-            .Where(path => path.Contains($"{Path.DirectorySeparatorChar}@openai{Path.DirectorySeparatorChar}codex{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
-            .Select(path => new FileInfo(path))
-            .OrderByDescending(file => file.LastWriteTimeUtc)
-            .FirstOrDefault()
-            ?.FullName;
-
-        if (codexCliPath is null)
-        {
-            return false;
-        }
-
-        startInfo.FileName = nodePath;
-        startInfo.ArgumentList.Add(codexCliPath);
-        return true;
-    }
-
-    private static bool TryUseNodeNpx(ProcessStartInfo startInfo)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return false;
-        }
-
-        var nodePath = GetWindowsNodePath();
-        if (nodePath is null)
-        {
-            return false;
-        }
-
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        var npxCliPath = Path.Combine(programFiles, "nodejs", "node_modules", "npm", "bin", "npx-cli.js");
-
-        if (!File.Exists(npxCliPath))
-        {
-            return false;
-        }
-
-        startInfo.FileName = nodePath;
-        startInfo.ArgumentList.Add(npxCliPath);
-        return true;
-    }
-
-    private static bool TryUseUnixNpx(ProcessStartInfo startInfo)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return false;
-        }
-
-        var npxPath = FindExecutableOnPath("npx", startInfo.Environment.TryGetValue("PATH", out var path) ? path : null);
-        if (npxPath is not null)
-        {
-            startInfo.FileName = npxPath;
-            return true;
-        }
-
-        var envPath = "/usr/bin/env";
-        if (!File.Exists(envPath))
-        {
-            return false;
-        }
-
-        startInfo.FileName = envPath;
-        startInfo.ArgumentList.Add("npx");
-        return true;
-    }
-
     private static string? FindExecutableOnPath(string executableName, string? pathValue)
     {
         if (string.IsNullOrWhiteSpace(pathValue))
@@ -340,20 +289,6 @@ public sealed class CodexQuotaClient
         }
 
         return null;
-    }
-
-    private static string? GetWindowsNodePath()
-    {
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        var nodePath = Path.Combine(programFiles, "nodejs", "node.exe");
-        return File.Exists(nodePath) ? nodePath : null;
-    }
-
-    private static void AddCodexNpxArguments(ProcessStartInfo startInfo)
-    {
-        startInfo.ArgumentList.Add("-y");
-        startInfo.ArgumentList.Add("@openai/codex@latest");
-        startInfo.ArgumentList.Add("app-server");
     }
 
     private static async Task SendRequestAsync(
@@ -497,8 +432,7 @@ public sealed class CodexQuotaClient
         return new QuotaSnapshot(
             DateTimeOffset.Now,
             limits,
-            ReadNullableInt(result, "rateLimitResetCredits", "availableCount"),
-            null);
+            ReadNullableInt(result, "rateLimitResetCredits", "availableCount"));
     }
 
     private static QuotaLimit ParseLimit(JsonElement element, string fallbackId)
@@ -530,55 +464,6 @@ public sealed class CodexQuotaClient
             Math.Clamp(100 - usedPercent, 0, 100),
             ReadInt(window, "windowDurationMins"),
             ReadUnixSeconds(window, "resetsAt"));
-    }
-
-    internal static UsageSummary ParseUsage(JsonElement element)
-    {
-        element.TryGetProperty("summary", out var summary);
-        var dailyUsageBuckets = ReadDailyUsageBuckets(element);
-        long? todayTokens = dailyUsageBuckets.Count == 0
-            ? null
-            : dailyUsageBuckets[^1].Tokens;
-
-        return new UsageSummary(
-            ReadNullableLong(summary, "lifetimeTokens"),
-            ReadNullableLong(summary, "peakDailyTokens"),
-            todayTokens,
-            ReadNullableInt(summary, "currentStreakDays"),
-            ReadNullableInt(summary, "longestStreakDays"),
-            ReadNullableLong(summary, "longestRunningTurnSec"),
-            dailyUsageBuckets);
-    }
-
-    private static IReadOnlyList<DailyUsageBucket> ReadDailyUsageBuckets(JsonElement element)
-    {
-        if (!element.TryGetProperty("dailyUsageBuckets", out var buckets) ||
-            buckets.ValueKind != JsonValueKind.Array)
-        {
-            return Array.Empty<DailyUsageBucket>();
-        }
-
-        var parsed = new List<DailyUsageBucket>();
-        foreach (var bucket in buckets.EnumerateArray())
-        {
-            if (bucket.ValueKind != JsonValueKind.Object)
-            {
-                continue;
-            }
-
-            var startDate = ReadString(bucket, "startDate");
-            var tokens = ReadNullableLong(bucket, "tokens");
-            if (string.IsNullOrWhiteSpace(startDate) || tokens is null)
-            {
-                continue;
-            }
-
-            parsed.Add(new DailyUsageBucket(startDate, Math.Max(0, tokens.Value)));
-        }
-
-        return parsed
-            .OrderBy(bucket => bucket.StartDate, StringComparer.Ordinal)
-            .ToArray();
     }
 
     private static bool TryGetResult(JsonElement response, out JsonElement result)
@@ -614,15 +499,6 @@ public sealed class CodexQuotaClient
     {
         return element.TryGetProperty(parent, out var parentElement)
             ? ReadNullableInt(parentElement, child)
-            : null;
-    }
-
-    private static long? ReadNullableLong(JsonElement element, string name)
-    {
-        return element.ValueKind == JsonValueKind.Object &&
-            element.TryGetProperty(name, out var property) &&
-            property.ValueKind == JsonValueKind.Number
-            ? property.GetInt64()
             : null;
     }
 

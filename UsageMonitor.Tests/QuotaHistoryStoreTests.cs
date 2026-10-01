@@ -27,8 +27,7 @@ public sealed class QuotaHistoryStoreTests : IDisposable
                     false,
                     false)
             ],
-            1,
-            null);
+            1);
 
         await store.RecordAsync(snapshot);
         var loaded = await store.LoadAsync(now.AddDays(-1));
@@ -71,7 +70,6 @@ public sealed class QuotaHistoryStoreTests : IDisposable
         var snapshot = new QuotaSnapshot(
             now,
             [new QuotaLimit("codex", "Codex", "pro", new QuotaWindow(20, 80, 300, now.AddHours(4)), null, false, false, false)],
-            null,
             null);
 
         await store.RecordAsync(snapshot);

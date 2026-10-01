@@ -9,13 +9,13 @@ namespace UsageMonitor.Controls;
 
 public sealed class QuotaHistoryChart : Control
 {
-    private static readonly IBrush BackgroundBrush = new SolidColorBrush(Color.Parse("#141B25"));
-    private static readonly IPen GridPen = new Pen(new SolidColorBrush(Color.Parse("#243041")), 1);
-    private static readonly IPen ResetPen = new Pen(new SolidColorBrush(Color.Parse("#E5B96D")), 1, DashStyle.Dot);
-    private static readonly IPen ObservedPen = new Pen(new SolidColorBrush(Color.Parse("#76E3C0")), 2.5);
-    private static readonly IPen ForecastPen = new Pen(new SolidColorBrush(Color.Parse("#8CB5FF")), 2, DashStyle.Dash);
-    private static readonly IBrush ObservedBrush = new SolidColorBrush(Color.Parse("#76E3C0"));
-    private static readonly IBrush ForecastBrush = new SolidColorBrush(Color.Parse("#8CB5FF"));
+    private static readonly IBrush BackgroundBrush = new SolidColorBrush(Color.Parse("#0F141C"));
+    private static readonly IPen GridPen = new Pen(new SolidColorBrush(Color.Parse("#222C38")), 1);
+    private static readonly IPen ResetPen = new Pen(new SolidColorBrush(Color.Parse("#E9BD70")), 1, DashStyle.Dot);
+    private static readonly IPen ObservedPen = new Pen(new SolidColorBrush(Color.Parse("#78E0BE")), 2.5);
+    private static readonly IPen ForecastPen = new Pen(new SolidColorBrush(Color.Parse("#7FA8FF")), 2, DashStyle.Dash);
+    private static readonly IBrush ObservedBrush = new SolidColorBrush(Color.Parse("#78E0BE"));
+    private static readonly IBrush ForecastBrush = new SolidColorBrush(Color.Parse("#7FA8FF"));
 
     public static readonly StyledProperty<IReadOnlyList<QuotaChartPoint>?> ObservedPointsProperty =
         AvaloniaProperty.Register<QuotaHistoryChart, IReadOnlyList<QuotaChartPoint>?>(nameof(ObservedPoints));

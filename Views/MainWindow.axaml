@@ -3,290 +3,264 @@
         xmlns:vm="using:UsageMonitor.ViewModels"
         xmlns:models="using:UsageMonitor.Models"
         xmlns:controls="using:UsageMonitor.Controls"
-        x:Class="UsageMonitor.Views.MainWindow" x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/AppIcon.ico" Title="Codex Usage Monitor"
-        Width="820" Height="660" MinWidth="720" MinHeight="540"
-        Background="#0C1016" Foreground="#EDF2F8">
-    <Design.DataContext><vm:MainWindowViewModel/></Design.DataContext>
+        x:Class="UsageMonitor.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/AppIcon.ico"
+        Title="Codex Usage Monitor"
+        Width="900"
+        Height="720"
+        MinWidth="760"
+        MinHeight="560"
+        Background="#0B0F14"
+        Foreground="#F2F6FA">
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
     <Window.Styles>
         <Style Selector="TextBlock.muted">
-            <Setter Property="Foreground" Value="#98A6B9"/>
+            <Setter Property="Foreground" Value="#8E9BAC"/>
             <Setter Property="FontSize" Value="12"/>
         </Style>
-        <Style Selector="TextBlock.eyebrow">
-            <Setter Property="Foreground" Value="#97ADCA"/>
-            <Setter Property="FontSize" Value="11"/>
+        <Style Selector="TextBlock.sectionTitle">
+            <Setter Property="Foreground" Value="#F2F6FA"/>
+            <Setter Property="FontSize" Value="15"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="LetterSpacing" Value="0"/>
         </Style>
-        <Style Selector="Border.card">
-            <Setter Property="Background" Value="#141B25"/>
-            <Setter Property="BorderBrush" Value="#243041"/>
+        <Style Selector="TextBlock.overline">
+            <Setter Property="Foreground" Value="#8E9BAC"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="LetterSpacing" Value="1.1"/>
+        </Style>
+        <Style Selector="Border.panel">
+            <Setter Property="Background" Value="#131922"/>
+            <Setter Property="BorderBrush" Value="#222C38"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="18"/>
+        </Style>
+        <Style Selector="Border.windowTile">
+            <Setter Property="Background" Value="#0F141C"/>
+            <Setter Property="BorderBrush" Value="#202A36"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="16"/>
-            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Padding" Value="14"/>
+            <Setter Property="Margin" Value="0,10,0,0"/>
         </Style>
-        <Style Selector="TabItem">
-            <Setter Property="Foreground" Value="#A5B3C6"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="Medium"/>
-            <Setter Property="Padding" Value="14,7"/>
-            <Setter Property="Margin" Value="0,0,6,0"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Name="TabSurface" Background="#131A24" CornerRadius="6"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter Content="{TemplateBinding Header}"
-                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                </ControlTemplate>
-            </Setter>
+        <Style Selector="Button.primary">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Background" Value="#78E0BE"/>
+            <Setter Property="Foreground" Value="#09251D"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
-        <Style Selector="TabItem:pointerover /template/ Border#TabSurface">
-            <Setter Property="Background" Value="#202C3C"/>
-        </Style>
-        <Style Selector="TabItem:selected">
-            <Setter Property="Foreground" Value="#D3FCEE"/>
-        </Style>
-        <Style Selector="TabItem:selected /template/ Border#TabSurface">
-            <Setter Property="Background" Value="#203C38"/>
-        </Style>
-        <Style Selector="TabItem:focus-visible /template/ Border#TabSurface">
-            <Setter Property="BorderBrush" Value="#76E3C0"/>
-            <Setter Property="BorderThickness" Value="1"/>
+        <Style Selector="Button.primary:pointerover">
+            <Setter Property="Background" Value="#91E9CC"/>
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="20,18,20,14">
-        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
-            <TextBlock Text="Codex Usage" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <TextBlock Text="Auto-refresh" Classes="muted" VerticalAlignment="Center"/>
-                <ComboBox ItemsSource="{Binding RefreshIntervalOptions}"
-                          SelectedItem="{Binding SelectedRefreshIntervalOption, Mode=TwoWay}"
-                          MinWidth="120" Height="32" CornerRadius="8" FontSize="12"
-                          Background="#17212E" BorderBrush="#2B3B50"
-                          AutomationProperties.Name="Auto-refresh interval">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="models:RefreshIntervalOption">
-                            <TextBlock Text="{Binding Label}"/>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-                <Button Command="{Binding RefreshCommand}" Height="32" Padding="16,0"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        CornerRadius="8" Background="#ACF2DA" Foreground="#102C25"
-                        FontWeight="SemiBold" FontSize="12" Content="Refresh"/>
-            </StackPanel>
-        </Grid>
-
-        <Border Grid.Row="1" CornerRadius="8" Background="#15221F"
-                BorderBrush="#2A3C36" BorderThickness="1" Padding="14,12" Margin="0,0,0,16">
-            <StackPanel Spacing="5">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Text="Estimated depletion" Classes="muted" Foreground="#A6C7BB"/>
-                    <TextBlock Grid.Column="1" Text="{Binding HeadlineForecastTitle}" Classes="muted"/>
-                </Grid>
-                <TextBlock Text="{Binding HeadlineForecastText}" FontSize="14" FontWeight="SemiBold"
-                           Foreground="#D8F1E7" TextWrapping="Wrap"/>
-                <TextBlock Text="{Binding HeadlineForecastDetail}" Classes="muted" TextWrapping="Wrap"/>
-            </StackPanel>
-        </Border>
-
-        <TabControl Grid.Row="2">
-            <TabItem Header="Overview" AutomationProperties.Name="Overview">
-                <ScrollViewer Margin="0,14,0,0" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel>
-                        <Grid ColumnDefinitions="*,Auto" Margin="2,0,2,10">
-                            <TextBlock Text="Available budget" Classes="eyebrow"/>
-                            <TextBlock Grid.Column="1" Text="{Binding SummaryText}" Classes="muted"
-                                       MaxWidth="400" TextTrimming="CharacterEllipsis"
-                                       ToolTip.Tip="{Binding SummaryText}"/>
-                        </Grid>
-                        <Border Classes="card" IsVisible="{Binding !HasQuota}">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="Waiting for current quota" FontSize="14" FontWeight="SemiBold"/>
-                                <TextBlock Text="Refresh to load the latest available budget. Saved history is available in the second tab."
-                                           Classes="muted" TextWrapping="Wrap"/>
-                            </StackPanel>
-                        </Border>
-                        <ItemsControl ItemsSource="{Binding Limits}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:QuotaLimitViewModel">
-                                    <Border Classes="card">
-                                        <StackPanel Spacing="10">
-                                            <Grid ColumnDefinitions="*,Auto">
-                                                <TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis"/>
-                                                <Border Grid.Column="1" Background="#253044" CornerRadius="6"
-                                                        Padding="9,4" IsVisible="{Binding !!PlanType}">
-                                                    <TextBlock Text="{Binding PlanType}" FontSize="11" Foreground="#C3D1E7"/>
-                                                </Border>
-                                            </Grid>
-                                            <ItemsControl ItemsSource="{Binding Windows}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="models:QuotaWindowViewModel">
-                                                        <Grid RowDefinitions="Auto,Auto" Margin="0,3,0,7">
-                                                            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-                                                                <StackPanel Spacing="4" VerticalAlignment="Center">
-                                                                    <TextBlock Text="{Binding Title}" FontSize="13" Foreground="#CCD7E6"/>
-                                                                    <TextBlock Text="{Binding ResetText}" Classes="muted"/>
-                                                                </StackPanel>
-                                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Bottom">
-                                                                    <TextBlock Text="{Binding RemainingText}" FontSize="16" FontWeight="SemiBold"/>
-                                                                    <TextBlock Text="left" Classes="muted" VerticalAlignment="Center"/>
-                                                                </StackPanel>
-                                                            </Grid>
-                                                            <ProgressBar Grid.Row="1" Minimum="0" Maximum="100" Height="6"
-                                                                         CornerRadius="3" Value="{Binding ProgressValue}"
-                                                                         Foreground="#76E3C0" Background="#293446"
-                                                                         AutomationProperties.Name="Quota remaining"/>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+    <Grid RowDefinitions="Auto,*">
+        <Border BorderBrush="#202834" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" Margin="26,20">
+                <StackPanel Spacing="5">
+                    <TextBlock Text="Codex quota" FontSize="21" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <TextBlock Text="●" Foreground="{Binding StatusColor}" FontSize="10" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding StatusText}" Classes="muted"/>
+                        <TextBlock Text="·" Classes="muted"/>
+                        <TextBlock Text="{Binding LastUpdatedText}" Classes="muted"/>
                     </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem Header="History &amp; forecast" AutomationProperties.Name="History &amp; forecast">
-                <ScrollViewer Margin="0,14,0,0" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel>
-                        <Grid ColumnDefinitions="*,Auto" Margin="2,0,2,10">
-                            <TextBlock Text="Budget over time" Classes="eyebrow"/>
-                            <TextBlock Grid.Column="1" Text="Past 14 days · hourly" Classes="muted"/>
-                        </Grid>
-                        <WrapPanel Margin="2,0,0,16">
-                            <TextBlock Text="●  Remaining" Foreground="#76E3C0" FontSize="11" Margin="0,0,20,0"/>
-                            <TextBlock Text="┄  Forecast" Foreground="#8CB5FF" FontSize="11" Margin="0,0,20,0"/>
-                            <TextBlock Text="│  Reset" Foreground="#E5B96D" FontSize="11"/>
-                        </WrapPanel>
-                        <TextBlock Text="No quota-window history is available yet." IsVisible="{Binding !HasHistoryCharts}"
-                                   Classes="muted" Margin="0,12,0,24"/>
-                        <ItemsControl ItemsSource="{Binding HistoryCharts}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:QuotaHistoryChartViewModel">
-                                    <Border Classes="card">
-                                        <StackPanel Spacing="8">
-                                            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
-                                                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding CurrentStatus}" FontSize="14"
-                                                           Foreground="#76E3C0" FontWeight="SemiBold" Margin="12,0,0,0"/>
-                                            </Grid>
-                                            <TextBlock Text="{Binding ForecastText}" Foreground="#AFCBFF" FontSize="14" TextWrapping="Wrap"/>
-                                            <TextBlock Text="{Binding ForecastDetail}" Classes="muted" TextWrapping="Wrap"/>
-                                            <Grid ColumnDefinitions="40,*" Height="170" Margin="0,16,0,2">
-                                                <Grid RowDefinitions="Auto,*,Auto">
-                                                    <TextBlock Text="100%" Classes="muted" FontSize="10"/>
-                                                    <TextBlock Grid.Row="1" Text="50%" Classes="muted" FontSize="10" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Row="2" Text="0%" Classes="muted" FontSize="10"/>
-                                                </Grid>
-                                                <controls:QuotaHistoryChart Grid.Column="1"
-                                                    ObservedPoints="{Binding ObservedPoints}" ForecastPoints="{Binding ForecastPoints}"
-                                                    ResetTimesUtc="{Binding ResetTimesUtc}" RangeStartUtc="{Binding RangeStartUtc}"
-                                                    RangeEndUtc="{Binding RangeEndUtc}"/>
-                                            </Grid>
-                                            <Grid ColumnDefinitions="*,Auto" Margin="40,0,0,0">
-                                                <TextBlock Text="{Binding RangeStartText}" Classes="muted" FontSize="10"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding RangeEndText}" Classes="muted" FontSize="10"/>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock Text="{Binding HistoryStatusText}" Classes="muted" TextWrapping="Wrap" Margin="2,2,0,14"/>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem Header="Account activity" AutomationProperties.Name="Account activity">
-                <ScrollViewer Margin="0,14,0,0" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel>
-                        <Grid ColumnDefinitions="*,Auto" Margin="2,0,2,10">
-                            <TextBlock Text="Codex account statistics" Classes="eyebrow"/>
-                            <TextBlock Grid.Column="1" Text="Account-wide" Classes="muted"/>
-                        </Grid>
-                        <Border Classes="card" IsVisible="{Binding !HasUsageSummary}">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="Account statistics unavailable" FontSize="14" FontWeight="SemiBold"/>
-                                <TextBlock Text="This Codex version or account did not return account usage statistics. Quota monitoring remains available."
-                                           Classes="muted" TextWrapping="Wrap"/>
-                            </StackPanel>
-                        </Border>
-                        <Border Classes="card" IsVisible="{Binding HasUsageSummary}">
-                            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto">
-                                <StackPanel Spacing="4" Margin="0,0,18,18">
-                                    <TextBlock Text="Today" Classes="muted"/>
-                                    <TextBlock Text="{Binding TodayTokensValueText}" FontSize="17" FontWeight="SemiBold"/>
-                                    <TextBlock Text="tokens" Classes="muted"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,18,18">
-                                    <TextBlock Text="Lifetime" Classes="muted"/>
-                                    <TextBlock Text="{Binding LifetimeTokensText}" FontSize="17" FontWeight="SemiBold"/>
-                                    <TextBlock Text="tokens" Classes="muted"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2" Spacing="4" Margin="0,0,0,18">
-                                    <TextBlock Text="Peak day" Classes="muted"/>
-                                    <TextBlock Text="{Binding PeakDailyTokensText}" FontSize="17" FontWeight="SemiBold"/>
-                                    <TextBlock Text="tokens" Classes="muted"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,18,0">
-                                    <TextBlock Text="Current streak" Classes="muted"/>
-                                    <TextBlock Text="{Binding CurrentStreakText}" FontSize="15" FontWeight="SemiBold"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4" Margin="0,0,18,0">
-                                    <TextBlock Text="Longest streak" Classes="muted"/>
-                                    <TextBlock Text="{Binding LongestStreakText}" FontSize="15" FontWeight="SemiBold"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4">
-                                    <TextBlock Text="Longest task" Classes="muted"/>
-                                    <TextBlock Text="{Binding LongestRunningTurnText}" FontSize="15" FontWeight="SemiBold"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
+                </StackPanel>
 
-                        <Grid ColumnDefinitions="*,Auto" Margin="2,6,2,10">
-                            <TextBlock Text="Recent daily tokens" Classes="eyebrow"/>
-                            <TextBlock Grid.Column="1" Text="Up to 14 days" Classes="muted"/>
-                        </Grid>
-                        <Border Classes="card">
-                            <StackPanel Spacing="10">
-                                <TextBlock Text="{Binding DailyUsageStatusText}" Classes="muted" TextWrapping="Wrap"/>
-                                <ItemsControl ItemsSource="{Binding DailyUsageBuckets}" IsVisible="{Binding HasDailyUsage}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="models:DailyUsageBucketViewModel">
-                                            <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto" Margin="0,2,0,7">
-                                                <TextBlock Text="{Binding DateText}" Classes="muted"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding TokensText}" HorizontalAlignment="Right"
-                                                           FontSize="12" Foreground="#CCD7E6"/>
-                                                <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Minimum="0" Maximum="100" Height="5"
-                                                             Margin="0,6,0,0" CornerRadius="3" Value="{Binding ProgressValue}"
-                                                             Foreground="#8CB5FF" Background="#293446"
-                                                             AutomationProperties.Name="Daily token usage"/>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-        </TabControl>
-        <Border Grid.Row="3" BorderBrush="#243041" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,8,0,0">
-            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                <TextBlock Text="{Binding StatusText}" Classes="muted" TextWrapping="Wrap"/>
-                <TextBlock Grid.Column="1" Text="{Binding LastUpdatedText}" Classes="muted"/>
-                <WrapPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,7,0,0">
-                    <TextBlock Text="{Binding TodayTokensText}" Classes="muted" FontSize="11" Margin="0,0,20,0"/>
-                    <TextBlock Text="{Binding ResetCreditsText}" Classes="muted" FontSize="11"/>
-                </WrapPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="Refresh every" Classes="muted" VerticalAlignment="Center"/>
+                    <ComboBox ItemsSource="{Binding RefreshIntervalOptions}"
+                              SelectedItem="{Binding SelectedRefreshIntervalOption, Mode=TwoWay}"
+                              MinWidth="116"
+                              Height="34"
+                              CornerRadius="7"
+                              FontSize="12"
+                              Background="#131922"
+                              BorderBrush="#2A3543"
+                              AutomationProperties.Name="Auto-refresh interval">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:RefreshIntervalOption">
+                                <TextBlock Text="{Binding Label}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Classes="primary"
+                            Command="{Binding RefreshCommand}"
+                            Content="Refresh"
+                            AutomationProperties.Name="Refresh quota"/>
+                </StackPanel>
             </Grid>
         </Border>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="26,24,26,34" Spacing="24">
+                <Border Background="#28191C"
+                        BorderBrush="#593038"
+                        BorderThickness="1"
+                        CornerRadius="9"
+                        Padding="15,13"
+                        IsVisible="{Binding HasRefreshError}">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Width="7" Height="7" CornerRadius="4" Background="#FF8A84"
+                                VerticalAlignment="Top" Margin="0,5,0,0"/>
+                        <StackPanel Grid.Column="1" Spacing="3" Margin="12,0,0,0">
+                            <TextBlock Text="Quota could not be updated" FontSize="13" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding RefreshErrorText}" Classes="muted"
+                                       Foreground="#D9A8A7" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto" Margin="2,0">
+                        <TextBlock Text="Current limits" Classes="sectionTitle"/>
+                        <TextBlock Grid.Column="1" Text="Remaining budget" Classes="muted" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <Border Classes="panel" IsVisible="{Binding !HasQuota}">
+                        <StackPanel Spacing="6" Margin="2">
+                            <TextBlock Text="No quota data yet" FontSize="14" FontWeight="SemiBold"/>
+                            <TextBlock Text="Refresh to read the quota windows linked to your Codex account."
+                                       Classes="muted" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding Limits}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:QuotaLimitViewModel">
+                                <Border Classes="panel" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="3">
+                                                <TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding StatusText}" Classes="muted"/>
+                                            </StackPanel>
+                                            <Border Grid.Column="1" Background="#1C2733" CornerRadius="6"
+                                                    Padding="9,4" IsVisible="{Binding !!PlanType}"
+                                                    VerticalAlignment="Top">
+                                                <TextBlock Text="{Binding PlanType}" FontSize="10" Foreground="#BAC7D5"/>
+                                            </Border>
+                                        </Grid>
+
+                                        <ItemsControl ItemsSource="{Binding Windows}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="models:QuotaWindowViewModel">
+                                                    <Border Classes="windowTile">
+                                                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                                            <StackPanel Spacing="3">
+                                                                <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="Medium"/>
+                                                                <TextBlock Text="{Binding ResetText}" Classes="muted"/>
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                                                        VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding RemainingText}" FontSize="24"
+                                                                           FontWeight="SemiBold" Foreground="#F5F8FB"/>
+                                                                <TextBlock Text="left" Classes="muted" VerticalAlignment="Bottom"
+                                                                           Margin="0,0,0,4"/>
+                                                            </StackPanel>
+                                                            <ProgressBar Grid.Row="1" Grid.ColumnSpan="2"
+                                                                         Minimum="0" Maximum="100" Height="7"
+                                                                         Margin="0,13,0,0" CornerRadius="4"
+                                                                         Value="{Binding ProgressValue}"
+                                                                         Foreground="#78E0BE" Background="#283341"
+                                                                         AutomationProperties.Name="Quota remaining"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto" Margin="2,0">
+                        <TextBlock Text="Forecast" Classes="sectionTitle"/>
+                        <TextBlock Grid.Column="1" Text="Based on saved quota history" Classes="muted"
+                                   VerticalAlignment="Center"/>
+                    </Grid>
+                    <Border Classes="panel">
+                        <Grid ColumnDefinitions="4,*">
+                            <Border Background="#78E0BE" CornerRadius="2"/>
+                            <StackPanel Grid.Column="1" Spacing="6" Margin="15,1,0,1">
+                                <TextBlock Text="{Binding HeadlineForecastTitle}" Classes="overline"/>
+                                <TextBlock Text="{Binding HeadlineForecastText}" FontSize="17" FontWeight="SemiBold"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding HeadlineForecastDetail}" Classes="muted" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto" Margin="2,0">
+                        <TextBlock Text="History" Classes="sectionTitle"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14">
+                            <TextBlock Text="●  Remaining" Foreground="#78E0BE" FontSize="11"/>
+                            <TextBlock Text="┄  Forecast" Foreground="#7FA8FF" FontSize="11"/>
+                            <TextBlock Text="│  Reset" Foreground="#E9BD70" FontSize="11"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Classes="panel" IsVisible="{Binding !HasHistoryCharts}">
+                        <TextBlock Text="{Binding HistoryStatusText}" Classes="muted" TextWrapping="Wrap"/>
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding HistoryCharts}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:QuotaHistoryChartViewModel">
+                                <Border Classes="panel" Margin="0,0,0,10">
+                                    <StackPanel Spacing="7">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding CurrentStatus}" FontSize="14"
+                                                       Foreground="#78E0BE" FontWeight="SemiBold" Margin="14,0,0,0"/>
+                                        </Grid>
+                                        <TextBlock Text="{Binding ForecastText}" Foreground="#B4CAFF" FontSize="13"
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding ForecastDetail}" Classes="muted" TextWrapping="Wrap"/>
+                                        <Grid ColumnDefinitions="34,*" Height="166" Margin="0,12,0,0">
+                                            <Grid RowDefinitions="Auto,*,Auto">
+                                                <TextBlock Text="100" Classes="muted" FontSize="9"/>
+                                                <TextBlock Grid.Row="1" Text="50" Classes="muted" FontSize="9"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Row="2" Text="0" Classes="muted" FontSize="9"/>
+                                            </Grid>
+                                            <controls:QuotaHistoryChart Grid.Column="1"
+                                                ObservedPoints="{Binding ObservedPoints}"
+                                                ForecastPoints="{Binding ForecastPoints}"
+                                                ResetTimesUtc="{Binding ResetTimesUtc}"
+                                                RangeStartUtc="{Binding RangeStartUtc}"
+                                                RangeEndUtc="{Binding RangeEndUtc}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto" Margin="34,0,0,0">
+                                            <TextBlock Text="{Binding RangeStartText}" Classes="muted" FontSize="9"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding RangeEndText}" Classes="muted" FontSize="9"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="{Binding HistoryStatusText}" Classes="muted" TextWrapping="Wrap"
+                               Margin="2,0" IsVisible="{Binding HasHistoryCharts}"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>

@@ -6,8 +6,7 @@ namespace UsageMonitor.Models;
 public sealed record QuotaSnapshot(
     DateTimeOffset RefreshedAt,
     IReadOnlyList<QuotaLimit> Limits,
-    int? AvailableResetCredits,
-    UsageSummary? Usage);
+    int? AvailableResetCredits);
 
 public sealed record QuotaLimit(
     string LimitId,
@@ -24,16 +23,3 @@ public sealed record QuotaWindow(
     int LeftPercent,
     int WindowDurationMinutes,
     DateTimeOffset? ResetsAt);
-
-public sealed record UsageSummary(
-    long? LifetimeTokens,
-    long? PeakDailyTokens,
-    long? TodayTokens,
-    int? CurrentStreakDays,
-    int? LongestStreakDays,
-    long? LongestRunningTurnSeconds,
-    IReadOnlyList<DailyUsageBucket> DailyUsageBuckets);
-
-public sealed record DailyUsageBucket(
-    string StartDate,
-    long Tokens);
