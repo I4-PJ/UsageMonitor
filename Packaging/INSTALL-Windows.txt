@@ -1,0 +1,16 @@
+Usage Monitor - Windows x64
+
+1. Extract the entire ZIP into a permanent folder.
+2. Install the native Codex CLI and sign in with ChatGPT as the same Windows user.
+   Official setup: https://learn.chatgpt.com/docs/codex/cli
+3. Start UsageMonitor.exe. Look for its icon in the system tray.
+4. Use Show Details to open the dashboard; use Quit to exit completely.
+
+The .NET runtime is included. Codex itself is installed separately.
+This prerelease does not have an Authenticode signature.
+Settings and history are saved under %APPDATA%\UsageMonitor.
+Quit the app before replacing the installed files during an update.
+
+Source, help, and releases: https://github.com/I4-PJ/UsageMonitor
+The application's MIT license is in LICENSE.
+Dependency licenses are in ThirdPartyLicenses, DOTNET-LICENSE.txt, and DOTNET-THIRD-PARTY-NOTICES.txt.

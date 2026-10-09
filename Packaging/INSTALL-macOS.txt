@@ -1,0 +1,19 @@
+Usage Monitor - macOS
+
+Requires macOS 15 or newer.
+
+1. Choose the osx-arm64 ZIP for Apple Silicon, or osx-x64 for an Intel Mac.
+2. Extract the ZIP and drag UsageMonitor.app into Applications.
+3. Install or open Codex and sign in with ChatGPT as the same macOS user.
+   Official setup: https://learn.chatgpt.com/docs/codex/cli
+4. Open UsageMonitor.app. Use its menu-bar icon to show details or quit.
+
+The .NET runtime is included. Codex itself is installed separately.
+This prerelease has no Developer ID signature and has not been notarized.
+macOS may require approval for this app in System Settings > Privacy & Security.
+Apple's instructions: https://support.apple.com/en-us/102445
+Settings and history are saved under ~/Library/Application Support/UsageMonitor.
+Quit the app before replacing an installed bundle during an update.
+
+Source, help, and releases: https://github.com/I4-PJ/UsageMonitor
+Licenses are inside UsageMonitor.app/Contents/MacOS, including ThirdPartyLicenses.

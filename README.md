@@ -23,15 +23,31 @@ An independent community project built with C# and Avalonia.
 
 Forecasts are estimates based on sampled quota changes. History accumulates while Usage Monitor is running; gaps while the app is closed are expected.
 
+## Downloads
+
+Ready-to-run packages are available from [GitHub Releases](https://github.com/I4-PJ/UsageMonitor/releases). Choose the ZIP that matches your computer:
+
+| Computer | Package filename |
+| --- | --- |
+| Windows x64 | `UsageMonitor-<version>-win-x64.zip` |
+| Apple Silicon Mac | `UsageMonitor-<version>-osx-arm64.zip` |
+| Intel Mac | `UsageMonitor-<version>-osx-x64.zip` |
+
+The packages include .NET, the MIT license, dependency notices, and installation notes. Install and sign in to Codex separately. Each release includes `SHA256SUMS.txt` for verifying downloads.
+
+Versions below 1.0 are prereleases. Windows packages have no Authenticode signature; Mac packages have no Developer ID signature and are not notarized. The release workflow checks startup on each platform, while live Codex authentication and dashboard interactions need separate validation.
+
 ## Requirements
 
 To run a packaged app:
 
-- Windows x64, or macOS on Apple Silicon or Intel, using an OS version compatible with .NET 9, Avalonia, and your installed Codex version.
+- Windows x64, or macOS 15 or newer on Apple Silicon or Intel, using an OS version compatible with .NET 9, Avalonia, and your installed Codex version.
 - A locally installed Codex CLI and a signed-in ChatGPT account that provides Codex account rate-limit data.
 - An internet connection for Codex to refresh account limits.
 
 To build from source, also install the [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0), or a newer SDK capable of targeting `net9.0`. Running a framework-dependent build requires the .NET 9 runtime. The self-contained packages described below include that runtime.
+
+The release packaging scripts also require Python 3 (`python` on Windows, `python3` on macOS) to collect dependency license texts. Running the app or building it with `dotnet run` does not require Python.
 
 The project currently targets .NET 9. Microsoft lists its end of support as November 10, 2026; see the [.NET support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core) when planning maintained releases.
 
@@ -91,15 +107,16 @@ Run these commands from the repository root in PowerShell. Quit any instance run
 ### Build a portable package
 
 ```powershell
-dotnet publish UsageMonitor.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false -p:PublishTrimmed=false --output ./artifacts/publish/win-x64
-Compress-Archive -Path ./artifacts/publish/win-x64/* -DestinationPath ./artifacts/UsageMonitor-win-x64.zip -Force
+./scripts/package-windows.ps1
 ```
 
-The ZIP contains the executable, application dependencies, .NET runtime, and MIT license. Distribute the entire ZIP or publish directory; the executable needs the other files alongside it. See Microsoft's [deployment documentation](https://learn.microsoft.com/en-us/dotnet/core/deploying/) for the distinction between self-contained and framework-dependent builds.
+This creates `artifacts/UsageMonitor-0.1.0-win-x64.zip` using the version in the project file. To build a different release version, pass `-Version 0.1.1`. Intermediate build files and the publish folder stay under `artifacts/`.
+
+The ZIP contains the executable, application dependencies, .NET runtime, MIT license, dependency notices, and installation notes. Distribute the entire ZIP or publish directory; the executable needs the other files alongside it. See Microsoft's [deployment documentation](https://learn.microsoft.com/en-us/dotnet/core/deploying/) for the distinction between self-contained and framework-dependent builds.
 
 ### Install and launch
 
-1. Extract `artifacts/UsageMonitor-win-x64.zip` into a permanent folder, such as `%LOCALAPPDATA%\Programs\UsageMonitor`.
+1. Extract the Windows release ZIP into a permanent folder, such as `%LOCALAPPDATA%\Programs\UsageMonitor`.
 2. Install native Codex and sign in as the Windows user who will run Usage Monitor.
 3. Launch `UsageMonitor.exe`. The app appears in the system tray, which may be inside the hidden-icons menu.
 4. Optionally create a shortcut to the executable. To start at sign-in, place that shortcut in the folder opened by **Win + R** → `shell:startup`.
@@ -119,16 +136,15 @@ Build the application bundle **on a Mac** with the .NET SDK installed. The packa
 | Apple Silicon | `osx-arm64` | `bash scripts/package-macos.sh osx-arm64` |
 | Intel | `osx-x64` | `bash scripts/package-macos.sh osx-x64` |
 
-Running `bash scripts/package-macos.sh` without an argument defaults to Apple Silicon. The script creates `artifacts/macos/UsageMonitor.app` and replaces that bundle on each run. Package or copy the result before building the other architecture.
+Running `bash scripts/package-macos.sh` without an argument defaults to Apple Silicon. The script creates `artifacts/macos/UsageMonitor.app` and replaces that bundle on each run. It also creates a versioned ZIP for the chosen architecture, so building the other architecture retains the first ZIP.
 
 For example, build and archive an Apple Silicon version:
 
 ```bash
 bash scripts/package-macos.sh osx-arm64
-ditto -c -k --sequesterRsrc --keepParent artifacts/macos/UsageMonitor.app artifacts/UsageMonitor-osx-arm64.zip
 ```
 
-For Intel, use `osx-x64` in the build command and ZIP filename. These are separate architecture-specific packages.
+This creates `artifacts/UsageMonitor-0.1.0-osx-arm64.zip`. For Intel, use `osx-x64` in the build command. These are separate architecture-specific packages. Set `VERSION=0.1.1` when invoking the script to override the project version; the script updates the compiled assembly and bundle metadata together.
 
 ### Install and launch
 
@@ -201,6 +217,19 @@ dotnet test UsageMonitor.Tests/UsageMonitor.Tests.csproj --configuration Release
 The xUnit tests cover CLI discovery, quota history persistence, forecasting, and refresh-error behavior. They use fixtures and temporary files rather than requiring a live Codex account.
 
 Report bugs or propose improvements through [GitHub issues](https://github.com/I4-PJ/UsageMonitor/issues). Include the OS, architecture, Codex version, and steps to reproduce. Pull requests are welcome; keep changes focused and run the relevant tests.
+
+## Creating a release
+
+Push a version tag to run [.github/workflows/release.yml](.github/workflows/release.yml):
+
+```bash
+git tag -a v0.1.1 -m "Usage Monitor v0.1.1"
+git push origin v0.1.1
+```
+
+The workflow tests and packages Windows x64, macOS Apple Silicon, and macOS Intel on native GitHub runners. It checks desktop startup without a Codex account, verifies Mac bundle metadata and architecture, collects dependency license texts, and publishes the three ZIPs plus SHA-256 checksums only after every build succeeds.
+
+Tags below `v1.0.0` and tags with a prerelease suffix are marked as prereleases. A manual workflow run on a branch builds downloadable Actions artifacts by default. To publish a new version from that branch, supply `release_tag` (for example, `v0.1.1`); the workflow creates that tag only after all build checks pass. A manual run on an existing version tag can publish that tag. Existing release tags are never overwritten.
 
 ## License
 
