@@ -2,7 +2,7 @@
   <img src="Assets/AppIcon.png" width="96" alt="Usage Monitor icon">
 </p>
 
-# Usage Monitor
+# Codex Usage Monitor
 
 A desktop companion for keeping an eye on your Codex account quota. See what is left, when each window resets, and how your usage is trending from the Windows system tray or macOS menu bar.
 
