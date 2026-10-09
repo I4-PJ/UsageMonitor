@@ -12,6 +12,32 @@ A desktop companion for keeping an eye on your Codex account quota. See what is 
 
 An independent community project built with C# and Avalonia.
 
+## Downloads
+
+**[Download v0.1.0](https://github.com/I4-PJ/UsageMonitor/releases/tag/v0.1.0)** — the first public prerelease, intended for early testing. These downloads are ready to run and include .NET.
+
+| Your computer | Download |
+| --- | --- |
+| Windows, 64-bit (x64) | **[Download for Windows](https://github.com/I4-PJ/UsageMonitor/releases/download/v0.1.0/UsageMonitor-0.1.0-win-x64.zip)** |
+| Mac with Apple Silicon, macOS 15+ | **[Download for Apple Silicon Mac](https://github.com/I4-PJ/UsageMonitor/releases/download/v0.1.0/UsageMonitor-0.1.0-osx-arm64.zip)** |
+| Mac with an Intel processor, macOS 15+ | **[Download for Intel Mac](https://github.com/I4-PJ/UsageMonitor/releases/download/v0.1.0/UsageMonitor-0.1.0-osx-x64.zip)** |
+
+To choose a Mac download, open **Apple menu → About This Mac**. A **Chip** entry means Apple Silicon; an Intel **Processor** entry means the Intel download. See [Apple's guide](https://support.apple.com/en-us/116943).
+
+### Install and open
+
+1. [Set up Codex](#set-up-codex) and sign in with ChatGPT if you have not already done so. Usage Monitor reads the quota for that account.
+2. Download the ZIP for your computer using one of the links above.
+3. **Windows:** right-click the downloaded ZIP, choose **Extract All**, then open `UsageMonitor.exe` from the extracted folder. Keep the other files in that folder alongside it.
+   **Mac:** open the ZIP, drag `UsageMonitor.app` to **Applications**, then open the app.
+4. Look for the icon beside the clock on Windows, or in the menu bar on Mac. On Windows it may be inside the hidden-icons menu. Click it or choose **Show Details** to see your quota.
+
+Closing the dashboard keeps the monitor running. To stop it completely, choose **Quit** from the icon's menu.
+
+The packages include the MIT license, dependency notices, and installation notes. Optional download verification is available in [SHA256SUMS.txt](https://github.com/I4-PJ/UsageMonitor/releases/download/v0.1.0/SHA256SUMS.txt). Browse [all releases](https://github.com/I4-PJ/UsageMonitor/releases) for other versions.
+
+Windows packages have no Authenticode signature; Mac packages have no Developer ID signature and are not notarized. If macOS asks for approval, follow [Apple's instructions](https://support.apple.com/en-us/102445). The release workflow checks startup on each platform, while live Codex authentication and dashboard interactions need separate validation.
+
 ## Features
 
 - **Quota at a glance:** remaining percentages, reset times in local time, plan information, and multiple limit groups when supplied by Codex.
@@ -22,20 +48,6 @@ An independent community project built with C# and Avalonia.
 - **Last known values:** a failed refresh leaves the previous quota visible and shows an error alongside the last update time.
 
 Forecasts are estimates based on sampled quota changes. History accumulates while Usage Monitor is running; gaps while the app is closed are expected.
-
-## Downloads
-
-Ready-to-run packages are available from [GitHub Releases](https://github.com/I4-PJ/UsageMonitor/releases). Choose the ZIP that matches your computer:
-
-| Computer | Package filename |
-| --- | --- |
-| Windows x64 | `UsageMonitor-<version>-win-x64.zip` |
-| Apple Silicon Mac | `UsageMonitor-<version>-osx-arm64.zip` |
-| Intel Mac | `UsageMonitor-<version>-osx-x64.zip` |
-
-The packages include .NET, the MIT license, dependency notices, and installation notes. Install and sign in to Codex separately. Each release includes `SHA256SUMS.txt` for verifying downloads.
-
-Versions below 1.0 are prereleases. Windows packages have no Authenticode signature; Mac packages have no Developer ID signature and are not notarized. The release workflow checks startup on each platform, while live Codex authentication and dashboard interactions need separate validation.
 
 ## Requirements
 
@@ -57,7 +69,7 @@ Install Codex using the [official CLI installation guide](https://learn.chatgpt.
 
 ### Windows
 
-Run the official installer in PowerShell:
+Open **Start**, search for **PowerShell**, and open it. Paste the official installer command below and press **Enter**:
 
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"
@@ -74,7 +86,7 @@ Usage Monitor searches `PATH` for **`codex.exe`**. An npm `codex.cmd` shim or a 
 
 ### macOS
 
-Install the standalone CLI from Terminal:
+Open **Terminal** from **Applications → Utilities**. Paste the official installer command below and press **Return**:
 
 ```bash
 curl -fsSL https://chatgpt.com/codex/install.sh | sh
